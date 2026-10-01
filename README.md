@@ -1,4 +1,4 @@
-# 🚀 Apple Store AI Connect (GitHub Action & CLI)
+# 🚀 Apple Connect AI Deliver (GitHub Action & CLI)
 
 Claude, Codex / OpenAI ve Gemini yapay zeka modelleriyle tam uyumlu, iOS mobil uygulamalarınız için otomatik App Store güncelleme notları ("What's New") ve mağaza metaverisi üreten, doğrudan **App Store Connect REST API**'ye güvenli şekilde aktaran yeni nesil GitHub Action ve CLI aracı.
 

@@ -1,5 +1,5 @@
 {
-  "name": "apple-store-ai-action",
+  "name": "apple-connect-ai-deliver",
   "version": "1.0.0",
   "description": "GitHub Action & CLI to automatically generate Apple App Store metadata and release notes from git commits using Claude, OpenAI/Codex, or Gemini, and deploy directly to App Store Connect API.",
   "main": "dist/index.js",

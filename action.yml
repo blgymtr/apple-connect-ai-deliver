@@ -1,4 +1,4 @@
-name: "Apple Store AI Connect Action"
+name: "Apple Connect AI Deliver"
 description: "Automatically generate Apple App Store metadata & release notes from git commits using Gemini, Claude, or OpenAI, and update App Store Connect."
 author: "Antigravity"
 branding:
