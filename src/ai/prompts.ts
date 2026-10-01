@@ -152,6 +152,33 @@ export function sanitizePromotionalText(raw: string): string {
   return promo;
 }
 
+export function buildReviewNotesPrompt(
+  gitContext: ExtractedGitContext,
+  options: { appContext?: string; demoUser?: string; demoPassword?: string; version?: string }
+): string {
+  const { appContext, demoUser, demoPassword, version } = options;
+  const recentFeatures = gitContext.summary.features.slice(0, 5).join('; ');
+  const recentFixes = gitContext.summary.fixes.slice(0, 5).join('; ');
+
+  return `You are an iOS release manager preparing instructions for the Apple App Store Review team for version ${version || 'next'}.
+Write concise, clear, and actionable reviewer notes.
+
+### App Context:
+${appContext || 'iOS application'}
+
+### Recent Changes To Test:
+- New Features: ${recentFeatures || 'General feature enhancements'}
+- Fixes: ${recentFixes || 'General stability and bug fixes'}
+
+${demoUser ? `### Demo Account Details:\n- Username: ${demoUser}\n- Password: ${demoPassword || 'N/A'}\n` : ''}
+
+### REQUIREMENTS:
+- Provide clear testing steps for the reviewer to verify key features quickly.
+- Explain that demo account credentials (if provided) give full access to test flows.
+- Keep it under 2000 characters, professional, polite, and directly actionable.
+- Respond with ONLY the plain text of the review notes (no markdown code blocks, no greeting fluff).`;
+}
+
 export function parseJsonResponse<T>(raw: string): T {
   let cleaned = raw.trim();
 

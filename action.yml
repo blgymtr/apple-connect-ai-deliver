@@ -73,11 +73,50 @@ inputs:
     description: "App category for targeted ASO keyword optimization (e.g. 'Health & Fitness', 'Finance', 'Productivity')."
     required: false
 
+  # App Store Review Information
+  submit_for_review:
+    description: "Automatically submit the version for Apple App Review after metadata updates."
+    required: false
+    default: "false"
+  demo_user:
+    description: "Demo user username or email for Apple review team."
+    required: false
+  demo_password:
+    description: "Demo user password for Apple review team."
+    required: false
+  contact_first_name:
+    description: "App reviewer contact first name."
+    required: false
+  contact_last_name:
+    description: "App reviewer contact last name."
+    required: false
+  contact_phone:
+    description: "App reviewer contact phone number (e.g. '+1 555 123 4567')."
+    required: false
+  contact_email:
+    description: "App reviewer contact email address."
+    required: false
+  review_notes:
+    description: "Custom notes/instructions for the Apple App Review team."
+    required: false
+  generate_review_notes:
+    description: "Use AI to automatically draft actionable App Review testing instructions based on new features."
+    required: false
+    default: "false"
+  scan_privacy:
+    description: "Scan Podfile.lock, SPM, and Info.plist to generate Apple Privacy Nutrition Labels report."
+    required: false
+    default: "false"
+
 outputs:
   release_notes_json:
     description: "Generated release notes for each locale in JSON format: {'en-US': '...', 'tr': '...'}"
   storefront_json:
     description: "Full storefront metadata JSON containing keywords, subtitle, description, and whatsNew per locale."
+  review_notes:
+    description: "App Reviewer testing instructions text."
+  privacy_report_md:
+    description: "Generated Apple Privacy Nutrition Labels Markdown report."
   app_version:
     description: "The App Store version string that was updated or targeted."
   status:

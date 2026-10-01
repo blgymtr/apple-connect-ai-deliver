@@ -30445,6 +30445,7 @@ exports.buildStorefrontPrompt = buildStorefrontPrompt;
 exports.sanitizeASOKeywords = sanitizeASOKeywords;
 exports.sanitizeSubtitle = sanitizeSubtitle;
 exports.sanitizePromotionalText = sanitizePromotionalText;
+exports.buildReviewNotesPrompt = buildReviewNotesPrompt;
 exports.parseJsonResponse = parseJsonResponse;
 function buildSystemPrompt() {
     return `You are an expert iOS Mobile Product Manager and App Store Optimization (ASO) specialist.
@@ -30580,6 +30581,28 @@ function sanitizePromotionalText(raw) {
         promo = promo.substring(0, 170).trim();
     }
     return promo;
+}
+function buildReviewNotesPrompt(gitContext, options) {
+    const { appContext, demoUser, demoPassword, version } = options;
+    const recentFeatures = gitContext.summary.features.slice(0, 5).join('; ');
+    const recentFixes = gitContext.summary.fixes.slice(0, 5).join('; ');
+    return `You are an iOS release manager preparing instructions for the Apple App Store Review team for version ${version || 'next'}.
+Write concise, clear, and actionable reviewer notes.
+
+### App Context:
+${appContext || 'iOS application'}
+
+### Recent Changes To Test:
+- New Features: ${recentFeatures || 'General feature enhancements'}
+- Fixes: ${recentFixes || 'General stability and bug fixes'}
+
+${demoUser ? `### Demo Account Details:\n- Username: ${demoUser}\n- Password: ${demoPassword || 'N/A'}\n` : ''}
+
+### REQUIREMENTS:
+- Provide clear testing steps for the reviewer to verify key features quickly.
+- Explain that demo account credentials (if provided) give full access to test flows.
+- Keep it under 2000 characters, professional, polite, and directly actionable.
+- Respond with ONLY the plain text of the review notes (no markdown code blocks, no greeting fluff).`;
 }
 function parseJsonResponse(raw) {
     let cleaned = raw.trim();
@@ -31003,6 +31026,92 @@ class AppStoreConnectClient {
         }
         return { updatedLocales, createdLocales };
     }
+    /**
+     * Updates App Store Review Information (contact details, demo account, reviewer notes).
+     */
+    async updateReviewDetails(versionId, attributes) {
+        if (this.dryRun) {
+            logger_1.logger.info(`[DRY-RUN] App Store Review Detail update:`);
+            if (attributes.contactEmail)
+                console.log(`  Contact Email: ${attributes.contactEmail}`);
+            if (attributes.demoAccountName)
+                console.log(`  Demo Account: ${attributes.demoAccountName}`);
+            if (attributes.notes)
+                console.log(`  Reviewer Notes: ${attributes.notes.substring(0, 100)}...`);
+            return;
+        }
+        logger_1.logger.info(`Fetching App Store Review Detail for version ${versionId}...`);
+        let existingReviewDetail = null;
+        try {
+            const res = await this.request(`/appStoreVersions/${versionId}/appStoreReviewDetail`);
+            existingReviewDetail = res.data || null;
+        }
+        catch {
+            // not yet created
+        }
+        if (existingReviewDetail && existingReviewDetail.id) {
+            logger_1.logger.info(`Updating App Store Review Detail (ID: ${existingReviewDetail.id})...`);
+            await this.request(`/appStoreReviewDetails/${existingReviewDetail.id}`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                    data: {
+                        type: 'appStoreReviewDetails',
+                        id: existingReviewDetail.id,
+                        attributes
+                    }
+                })
+            });
+            logger_1.logger.success('App Store Review Details updated successfully.');
+        }
+        else {
+            logger_1.logger.info(`Creating App Store Review Detail...`);
+            await this.request(`/appStoreReviewDetails`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    data: {
+                        type: 'appStoreReviewDetails',
+                        attributes,
+                        relationships: {
+                            appStoreVersion: {
+                                data: {
+                                    type: 'appStoreVersions',
+                                    id: versionId
+                                }
+                            }
+                        }
+                    }
+                })
+            });
+            logger_1.logger.success('App Store Review Details created successfully.');
+        }
+    }
+    /**
+     * Submits the target version for App Store Review.
+     */
+    async submitForReview(versionId) {
+        if (this.dryRun) {
+            logger_1.logger.info(`[DRY-RUN] Would submit version ${versionId} for App Store review.`);
+            return;
+        }
+        logger_1.logger.info(`Submitting App Store version ${versionId} for review...`);
+        await this.request(`/appStoreVersionSubmissions`, {
+            method: 'POST',
+            body: JSON.stringify({
+                data: {
+                    type: 'appStoreVersionSubmissions',
+                    relationships: {
+                        appStoreVersion: {
+                            data: {
+                                type: 'appStoreVersions',
+                                id: versionId
+                            }
+                        }
+                    }
+                }
+            })
+        });
+        logger_1.logger.success('🚀 Version submitted for App Store review successfully!');
+    }
 }
 exports.AppStoreConnectClient = AppStoreConnectClient;
 
@@ -31094,6 +31203,25 @@ function loadConfig(overrides = {}) {
         : getInput('pr_comment', 'PR_COMMENT', 'true');
     const prComment = prCommentStr.toLowerCase() !== 'false' && prCommentStr !== '0';
     const webhookUrl = overrides.webhookUrl || getInput('webhook_url', 'WEBHOOK_URL', '');
+    const demoUser = overrides.demoUser || getInput('demo_user', 'DEMO_USER', '');
+    const demoPassword = overrides.demoPassword || getInput('demo_password', 'DEMO_PASSWORD', '');
+    const contactEmail = overrides.contactEmail || getInput('contact_email', 'CONTACT_EMAIL', '');
+    const contactPhone = overrides.contactPhone || getInput('contact_phone', 'CONTACT_PHONE', '');
+    const contactFirstName = overrides.contactFirstName || getInput('contact_first_name', 'CONTACT_FIRST_NAME', '');
+    const contactLastName = overrides.contactLastName || getInput('contact_last_name', 'CONTACT_LAST_NAME', '');
+    const reviewNotes = overrides.reviewNotes || getInput('review_notes', 'REVIEW_NOTES', '');
+    const genReviewNotesStr = overrides.generateReviewNotes !== undefined
+        ? String(overrides.generateReviewNotes)
+        : getInput('generate_review_notes', 'GENERATE_REVIEW_NOTES', 'false');
+    const generateReviewNotes = genReviewNotesStr.toLowerCase() === 'true' || genReviewNotesStr === '1';
+    const submitReviewStr = overrides.submitForReview !== undefined
+        ? String(overrides.submitForReview)
+        : getInput('submit_for_review', 'SUBMIT_FOR_REVIEW', 'false');
+    const submitForReview = submitReviewStr.toLowerCase() === 'true' || submitReviewStr === '1';
+    const scanPrivacyStr = overrides.scanPrivacy !== undefined
+        ? String(overrides.scanPrivacy)
+        : getInput('scan_privacy', 'SCAN_PRIVACY', 'false');
+    const scanPrivacy = scanPrivacyStr.toLowerCase() === 'true' || scanPrivacyStr === '1';
     // Validation
     if (!apiKey) {
         throw new Error(`AI API key missing. Please provide "api_key" input or set ${provider === 'claude'
@@ -31131,7 +31259,17 @@ function loadConfig(overrides = {}) {
         saveToDisk: saveToDisk || undefined,
         githubToken: githubToken || undefined,
         prComment,
-        webhookUrl: webhookUrl || undefined
+        webhookUrl: webhookUrl || undefined,
+        demoUser: demoUser || undefined,
+        demoPassword: demoPassword || undefined,
+        contactEmail: contactEmail || undefined,
+        contactPhone: contactPhone || undefined,
+        contactFirstName: contactFirstName || undefined,
+        contactLastName: contactLastName || undefined,
+        reviewNotes: reviewNotes || undefined,
+        generateReviewNotes,
+        submitForReview,
+        scanPrivacy
     };
 }
 
@@ -31439,6 +31577,12 @@ async function main() {
         if (result.storefront) {
             core.setOutput('storefront_json', JSON.stringify(result.storefront));
         }
+        if (result.reviewNotes) {
+            core.setOutput('review_notes', result.reviewNotes);
+        }
+        if (result.privacyReport) {
+            core.setOutput('privacy_report_md', result.privacyReport.markdownSummary);
+        }
         core.setOutput('app_version', result.version);
         core.setOutput('status', result.status);
     }
@@ -31551,10 +31695,43 @@ async function sendWebhookNotification(options) {
 /***/ }),
 
 /***/ 4813:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
 
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.runAction = runAction;
 const logger_1 = __nccwpck_require__(7893);
@@ -31562,8 +31739,10 @@ const commits_1 = __nccwpck_require__(9102);
 const factory_1 = __nccwpck_require__(8700);
 const client_1 = __nccwpck_require__(4173);
 const exporter_1 = __nccwpck_require__(3592);
+const prompts_1 = __nccwpck_require__(289);
 const pr_1 = __nccwpck_require__(3437);
 const webhook_1 = __nccwpck_require__(413);
+const privacy_1 = __nccwpck_require__(4334);
 async function runAction(config) {
     // Mask sensitive values from CI logs
     if (config.apiKey)
@@ -31628,6 +31807,35 @@ async function runAction(config) {
         }
         logger_1.logger.endGroup();
     }
+    // 2.5 Generate / Process Review Notes & Information
+    let reviewDetail;
+    let generatedReviewNotes = config.reviewNotes;
+    if (config.generateReviewNotes || config.reviewNotes || config.demoUser || config.contactEmail) {
+        if (config.generateReviewNotes) {
+            logger_1.logger.group(`Generating App Reviewer Notes via ${config.provider.toUpperCase()}`, () => { });
+            const reviewPrompt = (0, prompts_1.buildReviewNotesPrompt)(gitContext, {
+                appContext: config.appContext,
+                demoUser: config.demoUser,
+                demoPassword: config.demoPassword,
+                version: config.version
+            });
+            generatedReviewNotes = await aiProvider.generateText(reviewPrompt);
+            console.log(`\n--- [App Reviewer Notes] ---`);
+            console.log(generatedReviewNotes);
+            console.log(`----------------------------\n`);
+            logger_1.logger.endGroup();
+        }
+        reviewDetail = {
+            contactFirstName: config.contactFirstName,
+            contactLastName: config.contactLastName,
+            contactPhone: config.contactPhone,
+            contactEmail: config.contactEmail,
+            demoAccountName: config.demoUser,
+            demoAccountPassword: config.demoPassword,
+            demoAccountRequired: !!config.demoUser,
+            notes: generatedReviewNotes || undefined
+        };
+    }
     // 3. Optional: Save to disk (e.g. Fastlane directory)
     if (config.saveToDisk) {
         logger_1.logger.group(`Step 3: Saving to Local Disk (${config.saveToDisk})`, () => { });
@@ -31637,11 +31845,29 @@ async function runAction(config) {
         else {
             (0, exporter_1.saveReleaseNotesToDisk)(config.saveToDisk, releaseNotes);
         }
+        if (reviewDetail) {
+            (0, exporter_1.saveReviewInfoToDisk)(config.saveToDisk, reviewDetail);
+        }
+        logger_1.logger.endGroup();
+    }
+    // 3.5 Optional: Privacy Nutrition Labels Scanner
+    let privacyReport;
+    if (config.scanPrivacy) {
+        logger_1.logger.group('Step: Scanning Apple Privacy Nutrition Labels', () => { });
+        privacyReport = (0, privacy_1.scanPrivacyInWorkspace)();
+        console.log(`\n${privacyReport.markdownSummary}\n`);
+        if (config.saveToDisk) {
+            const fs = await Promise.resolve().then(() => __importStar(__nccwpck_require__(9896)));
+            const path = await Promise.resolve().then(() => __importStar(__nccwpck_require__(6928)));
+            fs.writeFileSync(path.join(config.saveToDisk, 'privacy_report.md'), privacyReport.markdownSummary, 'utf-8');
+            logger_1.logger.success(`Wrote privacy report to ${path.join(config.saveToDisk, 'privacy_report.md')}`);
+        }
         logger_1.logger.endGroup();
     }
     // 4. Update App Store Connect
     let targetVersionString = config.version || 'unknown';
     let status = config.dryRun ? 'dry-run-preview' : 'updated';
+    let submittedForReview = false;
     if (!config.dryRun && config.appId && config.ascKeyId && config.ascIssuerId && config.ascPrivateKey) {
         logger_1.logger.group('Step 4: Updating App Store Connect API', () => { });
         const appleClient = new client_1.AppStoreConnectClient({
@@ -31662,10 +31888,33 @@ async function runAction(config) {
             const { updatedLocales, createdLocales } = await appleClient.updateReleaseNotes(targetVersion.id, releaseNotes);
             logger_1.logger.success(`App Store Connect release notes update complete! Updated: [${updatedLocales.join(', ')}], Created: [${createdLocales.join(', ')}]`);
         }
+        if (reviewDetail) {
+            await appleClient.updateReviewDetails(targetVersion.id, reviewDetail);
+        }
+        if (config.submitForReview) {
+            logger_1.logger.group('Submitting App Store Version for Review', () => { });
+            await appleClient.submitForReview(targetVersion.id);
+            submittedForReview = true;
+            logger_1.logger.endGroup();
+        }
         logger_1.logger.endGroup();
     }
     else if (config.dryRun) {
         logger_1.logger.info('[DRY-RUN] Skipped App Store Connect API calls as dry_run is enabled.');
+        if (reviewDetail) {
+            const appleClient = new client_1.AppStoreConnectClient({
+                appId: config.appId || 'mock',
+                keyId: config.ascKeyId || 'mock',
+                issuerId: config.ascIssuerId || 'mock',
+                privateKey: config.ascPrivateKey || 'mock',
+                dryRun: true
+            });
+            await appleClient.updateReviewDetails('mock-version', reviewDetail);
+        }
+        if (config.submitForReview) {
+            logger_1.logger.info(`[DRY-RUN] Would submit version for App Store Review.`);
+            submittedForReview = true;
+        }
     }
     // 5. Post Sticky Pull Request Comment (if in PR context)
     if (config.prComment && (config.githubToken || process.env.GITHUB_TOKEN)) {
@@ -31701,7 +31950,208 @@ async function runAction(config) {
         version: targetVersionString,
         releaseNotes,
         storefront: storefrontData,
+        reviewNotes: generatedReviewNotes,
+        submittedForReview,
+        privacyReport,
         status
+    };
+}
+
+
+/***/ }),
+
+/***/ 4334:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.scanPrivacyInWorkspace = scanPrivacyInWorkspace;
+const fs = __importStar(__nccwpck_require__(9896));
+const path = __importStar(__nccwpck_require__(6928));
+const logger_1 = __nccwpck_require__(7893);
+const KNOWN_SDK_RULES = {
+    'FirebaseAnalytics': { category: 'Analytics', data: ['User ID', 'Device ID', 'Product Interaction'], tracking: false },
+    'FirebaseCrashlytics': { category: 'Crash Reporting', data: ['Crash Data', 'Performance Diagnostics'], tracking: false },
+    'GoogleMobileAds': { category: 'Advertising', data: ['Advertising Data', 'Device ID', 'Interaction Data'], tracking: true },
+    'Google-Mobile-Ads-SDK': { category: 'Advertising', data: ['Advertising Data', 'Device ID', 'Interaction Data'], tracking: true },
+    'FBSDKCoreKit': { category: 'Advertising', data: ['Device ID', 'User ID', 'Ad Data'], tracking: true },
+    'FacebookSDK': { category: 'Advertising', data: ['Device ID', 'User ID', 'Ad Data'], tracking: true },
+    'AppsFlyerLib': { category: 'Attribution', data: ['Device ID', 'Purchase History', 'Ad Clicks'], tracking: true },
+    'AppsFlyer': { category: 'Attribution', data: ['Device ID', 'Purchase History', 'Ad Clicks'], tracking: true },
+    'Purchases': { category: 'Payments', data: ['Purchase History', 'User ID'], tracking: false },
+    'RevenueCat': { category: 'Payments', data: ['Purchase History', 'User ID'], tracking: false },
+    'Sentry': { category: 'Crash Reporting', data: ['Crash Logs', 'Device Performance Data'], tracking: false },
+    'OneSignal': { category: 'Push Notifications', data: ['Device ID', 'Contact Info'], tracking: false },
+    'Stripe': { category: 'Payments', data: ['Financial Information', 'Payment Details'], tracking: false }
+};
+const PERMISSION_KEYS = {
+    'NSCameraUsageDescription': 'Camera Access',
+    'NSPhotoLibraryUsageDescription': 'Photo Library Access',
+    'NSLocationWhenInUseUsageDescription': 'Location (While In Use)',
+    'NSLocationAlwaysAndWhenInUseUsageDescription': 'Location (Always)',
+    'NSMicrophoneUsageDescription': 'Microphone Access',
+    'NSUserTrackingUsageDescription': 'App Tracking Transparency (IDFA)',
+    'NSBluetoothAlwaysUsageDescription': 'Bluetooth Access',
+    'NSCalendarsUsageDescription': 'Calendar Access',
+    'NSContactsUsageDescription': 'Contacts Access',
+    'NSFaceIDUsageDescription': 'Face ID Authentication'
+};
+function searchFilesRecursively(dir, fileNames, maxDepth = 4, currentDepth = 0) {
+    if (currentDepth > maxDepth || !fs.existsSync(dir))
+        return [];
+    const found = [];
+    try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'Pods')
+                continue;
+            const fullPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                found.push(...searchFilesRecursively(fullPath, fileNames, maxDepth, currentDepth + 1));
+            }
+            else if (fileNames.includes(entry.name) || fileNames.some(f => entry.name.endsWith(f))) {
+                found.push(fullPath);
+            }
+        }
+    }
+    catch {
+        // Ignore permissions/file read errors
+    }
+    return found;
+}
+function scanPrivacyInWorkspace(workspaceDir = process.cwd()) {
+    logger_1.logger.info(`Scanning workspace for iOS dependencies and Privacy Nutrition Labels at: ${workspaceDir}`);
+    const detectedSDKs = [];
+    const detectedPermissions = [];
+    const seenSDKNames = new Set();
+    // 1. Search for dependency lockfiles
+    const lockfiles = searchFilesRecursively(workspaceDir, ['Podfile.lock', 'Package.resolved', 'Cartfile.resolved']);
+    for (const lockfile of lockfiles) {
+        try {
+            const content = fs.readFileSync(lockfile, 'utf-8');
+            for (const [sdkKey, rule] of Object.entries(KNOWN_SDK_RULES)) {
+                if (!seenSDKNames.has(sdkKey) && content.includes(sdkKey)) {
+                    seenSDKNames.add(sdkKey);
+                    detectedSDKs.push({
+                        name: sdkKey,
+                        category: rule.category,
+                        dataCollected: rule.data,
+                        tracking: rule.tracking
+                    });
+                }
+            }
+        }
+        catch (err) {
+            logger_1.logger.warn(`Could not read lockfile ${lockfile}: ${err.message}`);
+        }
+    }
+    // 2. Search for Info.plist files
+    const plistFiles = searchFilesRecursively(workspaceDir, ['Info.plist']);
+    for (const plist of plistFiles) {
+        try {
+            const content = fs.readFileSync(plist, 'utf-8');
+            for (const [permKey, purpose] of Object.entries(PERMISSION_KEYS)) {
+                if (content.includes(`<key>${permKey}</key>`)) {
+                    const match = content.match(new RegExp(`<key>${permKey}</key>\\s*<string>([^<]+)</string>`));
+                    detectedPermissions.push({
+                        key: permKey,
+                        purpose,
+                        description: match ? match[1].trim() : 'Permission configured without description'
+                    });
+                }
+            }
+        }
+        catch {
+            // ignore
+        }
+    }
+    const requiresTracking = detectedSDKs.some(s => s.tracking) ||
+        detectedPermissions.some(p => p.key === 'NSUserTrackingUsageDescription');
+    // Group into App Store Nutrition categories
+    const dataUsedToTrackYou = [];
+    const dataLinkedToYou = [];
+    const dataNotLinkedToYou = [];
+    for (const sdk of detectedSDKs) {
+        if (sdk.tracking) {
+            dataUsedToTrackYou.push(...sdk.dataCollected.map(d => `${d} (via ${sdk.name})`));
+        }
+        else if (sdk.category === 'Payments' || sdk.category === 'Analytics') {
+            dataLinkedToYou.push(...sdk.dataCollected.map(d => `${d} (via ${sdk.name})`));
+        }
+        else {
+            dataNotLinkedToYou.push(...sdk.dataCollected.map(d => `${d} (via ${sdk.name})`));
+        }
+    }
+    // Generate markdown report
+    let md = `## 🔒 Apple App Privacy & Nutrition Labels Report\n\n`;
+    md += `> ℹ **App Tracking Transparency (ATT):** ${requiresTracking ? '⚠️ **REQUIRED** (Tracking SDKs or IDFA detected)' : '✅ Not explicitly required'}\n\n`;
+    if (detectedSDKs.length > 0) {
+        md += `### 📦 Detected Third-Party SDKs (${detectedSDKs.length})\n\n`;
+        md += `| SDK Name | Category | Data Collected | Tracks User? |\n`;
+        md += `| :--- | :--- | :--- | :---: |\n`;
+        for (const sdk of detectedSDKs) {
+            md += `| **${sdk.name}** | ${sdk.category} | ${sdk.dataCollected.join(', ')} | ${sdk.tracking ? '⚠️ Yes' : 'No'} |\n`;
+        }
+        md += `\n`;
+    }
+    else {
+        md += `### 📦 Detected Third-Party SDKs\nNo known third-party analytics or ad SDKs detected in project lockfiles.\n\n`;
+    }
+    if (detectedPermissions.length > 0) {
+        md += `### 📱 Configured iOS Privacy Permissions (${detectedPermissions.length})\n\n`;
+        for (const p of detectedPermissions) {
+            md += `- **${p.purpose}** (\`${p.key}\`): "${p.description}"\n`;
+        }
+        md += `\n`;
+    }
+    md += `### 📋 App Store Connect Nutrition Questionnaire Answers:\n`;
+    md += `- **Data Used to Track You:** ${dataUsedToTrackYou.length > 0 ? dataUsedToTrackYou.join(', ') : 'None'}\n`;
+    md += `- **Data Linked to You:** ${dataLinkedToYou.length > 0 ? dataLinkedToYou.join(', ') : 'None'}\n`;
+    md += `- **Data Not Linked to You:** ${dataNotLinkedToYou.length > 0 ? dataNotLinkedToYou.join(', ') : 'None'}\n`;
+    return {
+        detectedSDKs,
+        detectedPermissions,
+        requiresTrackingAuthorization: requiresTracking,
+        nutritionLabelChecklist: {
+            dataUsedToTrackYou,
+            dataLinkedToYou,
+            dataNotLinkedToYou
+        },
+        markdownSummary: md
     };
 }
 
@@ -31749,6 +32199,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.saveReleaseNotesToDisk = saveReleaseNotesToDisk;
 exports.saveStorefrontToDisk = saveStorefrontToDisk;
+exports.saveReviewInfoToDisk = saveReviewInfoToDisk;
 const fs = __importStar(__nccwpck_require__(9896));
 const path = __importStar(__nccwpck_require__(6928));
 const logger_1 = __nccwpck_require__(7893);
@@ -31785,6 +32236,28 @@ function saveStorefrontToDisk(basePath, storefrontData) {
             fs.writeFileSync(path.join(localeDir, 'description.txt'), meta.description, 'utf-8');
         logger_1.logger.success(`Wrote storefront metadata files for '${locale}'.`);
     }
+}
+function saveReviewInfoToDisk(basePath, reviewInfo) {
+    const resolvedBase = path.resolve(process.cwd(), basePath);
+    const reviewDir = path.join(resolvedBase, 'review_information');
+    if (!fs.existsSync(reviewDir)) {
+        fs.mkdirSync(reviewDir, { recursive: true });
+    }
+    if (reviewInfo.contactFirstName)
+        fs.writeFileSync(path.join(reviewDir, 'first_name.txt'), reviewInfo.contactFirstName, 'utf-8');
+    if (reviewInfo.contactLastName)
+        fs.writeFileSync(path.join(reviewDir, 'last_name.txt'), reviewInfo.contactLastName, 'utf-8');
+    if (reviewInfo.contactPhone)
+        fs.writeFileSync(path.join(reviewDir, 'phone_number.txt'), reviewInfo.contactPhone, 'utf-8');
+    if (reviewInfo.contactEmail)
+        fs.writeFileSync(path.join(reviewDir, 'email_address.txt'), reviewInfo.contactEmail, 'utf-8');
+    if (reviewInfo.demoAccountName)
+        fs.writeFileSync(path.join(reviewDir, 'demo_user.txt'), reviewInfo.demoAccountName, 'utf-8');
+    if (reviewInfo.demoAccountPassword)
+        fs.writeFileSync(path.join(reviewDir, 'demo_password.txt'), reviewInfo.demoAccountPassword, 'utf-8');
+    if (reviewInfo.notes)
+        fs.writeFileSync(path.join(reviewDir, 'notes.txt'), reviewInfo.notes, 'utf-8');
+    logger_1.logger.success(`Wrote review_information files to ${reviewDir}`);
 }
 
 

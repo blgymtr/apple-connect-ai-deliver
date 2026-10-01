@@ -52,6 +52,29 @@ export function loadConfig(overrides: Partial<ActionConfig> = {}): ActionConfig 
 
   const webhookUrl = overrides.webhookUrl || getInput('webhook_url', 'WEBHOOK_URL', '');
 
+  const demoUser = overrides.demoUser || getInput('demo_user', 'DEMO_USER', '');
+  const demoPassword = overrides.demoPassword || getInput('demo_password', 'DEMO_PASSWORD', '');
+  const contactEmail = overrides.contactEmail || getInput('contact_email', 'CONTACT_EMAIL', '');
+  const contactPhone = overrides.contactPhone || getInput('contact_phone', 'CONTACT_PHONE', '');
+  const contactFirstName = overrides.contactFirstName || getInput('contact_first_name', 'CONTACT_FIRST_NAME', '');
+  const contactLastName = overrides.contactLastName || getInput('contact_last_name', 'CONTACT_LAST_NAME', '');
+  const reviewNotes = overrides.reviewNotes || getInput('review_notes', 'REVIEW_NOTES', '');
+
+  const genReviewNotesStr = overrides.generateReviewNotes !== undefined
+    ? String(overrides.generateReviewNotes)
+    : getInput('generate_review_notes', 'GENERATE_REVIEW_NOTES', 'false');
+  const generateReviewNotes = genReviewNotesStr.toLowerCase() === 'true' || genReviewNotesStr === '1';
+
+  const submitReviewStr = overrides.submitForReview !== undefined
+    ? String(overrides.submitForReview)
+    : getInput('submit_for_review', 'SUBMIT_FOR_REVIEW', 'false');
+  const submitForReview = submitReviewStr.toLowerCase() === 'true' || submitReviewStr === '1';
+
+  const scanPrivacyStr = overrides.scanPrivacy !== undefined
+    ? String(overrides.scanPrivacy)
+    : getInput('scan_privacy', 'SCAN_PRIVACY', 'false');
+  const scanPrivacy = scanPrivacyStr.toLowerCase() === 'true' || scanPrivacyStr === '1';
+
   // Validation
   if (!apiKey) {
     throw new Error(
@@ -91,6 +114,16 @@ export function loadConfig(overrides: Partial<ActionConfig> = {}): ActionConfig 
     saveToDisk: saveToDisk || undefined,
     githubToken: githubToken || undefined,
     prComment,
-    webhookUrl: webhookUrl || undefined
+    webhookUrl: webhookUrl || undefined,
+    demoUser: demoUser || undefined,
+    demoPassword: demoPassword || undefined,
+    contactEmail: contactEmail || undefined,
+    contactPhone: contactPhone || undefined,
+    contactFirstName: contactFirstName || undefined,
+    contactLastName: contactLastName || undefined,
+    reviewNotes: reviewNotes || undefined,
+    generateReviewNotes,
+    submitForReview,
+    scanPrivacy
   };
 }

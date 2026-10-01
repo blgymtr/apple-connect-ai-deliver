@@ -11,6 +11,12 @@ async function main() {
     if (result.storefront) {
       core.setOutput('storefront_json', JSON.stringify(result.storefront));
     }
+    if (result.reviewNotes) {
+      core.setOutput('review_notes', result.reviewNotes);
+    }
+    if (result.privacyReport) {
+      core.setOutput('privacy_report_md', result.privacyReport.markdownSummary);
+    }
     core.setOutput('app_version', result.version);
     core.setOutput('status', result.status);
   } catch (error: any) {

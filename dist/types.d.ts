@@ -21,6 +21,16 @@ export interface ActionConfig {
     githubToken?: string;
     prComment?: boolean;
     webhookUrl?: string;
+    demoUser?: string;
+    demoPassword?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    contactFirstName?: string;
+    contactLastName?: string;
+    reviewNotes?: string;
+    generateReviewNotes?: boolean;
+    submitForReview?: boolean;
+    scanPrivacy?: boolean;
 }
 export interface StorefrontMetadata {
     whatsNew?: string;
@@ -99,4 +109,19 @@ export interface AppInfo {
         appStoreState?: string;
         appStoreAgeRating?: string;
     };
+}
+export interface AppStoreReviewDetailAttributes {
+    contactEmail?: string;
+    contactFirstName?: string;
+    contactLastName?: string;
+    contactPhone?: string;
+    demoAccountName?: string;
+    demoAccountPassword?: string;
+    demoAccountRequired?: boolean;
+    notes?: string;
+}
+export interface AppStoreReviewDetail {
+    id: string;
+    type: 'appStoreReviewDetails';
+    attributes: AppStoreReviewDetailAttributes;
 }

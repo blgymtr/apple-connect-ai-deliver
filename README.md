@@ -105,11 +105,51 @@ jobs:
 | `dry_run` | Hayır | `false` | `true` yapılırsa App Store Connect'e istek atmadan sonucu loglar |
 | `mode`         | Hayır | `release-notes-only` | `release-notes-only` (sadece yenilikler) veya `full-storefront` (100 char ASO anahtar kelimeler, 30 char alt başlık, tanıtım metni, açıklama) |
 | `app_category` | Hayır | - | ASO anahtar kelime optimizasyonu için kategori (ör. `Health & Fitness`, `Finance`, `Productivity`) |
+| `submit_for_review` | Hayır | `false` | Güncelleme tamamlandıktan sonra sürümü otomatik olarak Apple onayına gönderme |
+| `demo_user`    | Hayır | - | Apple inceleme ekibi için demo kullanıcı adı / e-posta |
+| `demo_password`| Hayır | - | Apple inceleme ekibi için demo şifre |
+| `generate_review_notes` | Hayır | `false` | AI ile yeni özelliklere göre Apple Reviewer test yönergeleri taslağı hazırlama |
+| `scan_privacy` | Hayır | `false` | Podfile.lock, SPM ve Info.plist'i tarayarak Apple Gizlilik (Nutrition Labels) anketi raporu üretme |
 | `github_token` | Hayır | `${{ github.token }}` | PR önizleme yorumu için GitHub token |
 | `pr_comment`   | Hayır | `true` | PR açıldığında otomatik yapışkan önizleme yorumu ekleme/güncelleme |
 | `webhook_url`  | Hayır | - | Slack veya Discord webhook bildirim adresi |
 
 ---
+
+## 🚀 Otomatik Apple İncelemesine Gönderme & Reviewer Asistanı
+
+Metaveriler yüklendikten sonra doğrudan Apple inceleme sürecini başlatabilir, test ekibine demo hesabı ve test yönergelerini otomatik iletebilirsiniz:
+
+```yaml
+      - uses: blgymtr/apple-connect-ai-deliver@v1
+        with:
+          provider: 'gemini'
+          api_key: ${{ secrets.GEMINI_API_KEY }}
+          app_id: ${{ secrets.APP_STORE_APP_ID }}
+          asc_key_id: ${{ secrets.APP_STORE_KEY_ID }}
+          asc_issuer_id: ${{ secrets.APP_STORE_ISSUER_ID }}
+          asc_private_key: ${{ secrets.APP_STORE_PRIVATE_KEY }}
+          # Onay Ekibi Bilgileri
+          demo_user: 'reviewer@yourapp.com'
+          demo_password: ${{ secrets.DEMO_USER_PASSWORD }}
+          generate_review_notes: 'true' # AI reviewer adımlarını yazar
+          submit_for_review: 'true'     # 🚀 Tek tıkla Apple incelemesine gönder
+```
+
+---
+
+## 🔒 Apple Gizlilik & Nutrition Labels Taraması
+
+`scan_privacy: 'true'` ayarlandığında, projenizdeki `Podfile.lock`, `Package.resolved` ve `Info.plist` dosyalarını tarar; Firebase, AdMob, AppsFlyer gibi SDK'ları tespit ederek App Store Connect'teki Gizlilik Anketinde hangi kutuları işaretlemeniz gerektiğini listeler:
+
+```yaml
+      - uses: blgymtr/apple-connect-ai-deliver@v1
+        with:
+          provider: 'gemini'
+          api_key: ${{ secrets.GEMINI_API_KEY }}
+          scan_privacy: 'true'
+          dry_run: 'true'
+```
 
 ## 🎯 ASO (App Store Optimization) & Tam Mağaza Metaverisi
 

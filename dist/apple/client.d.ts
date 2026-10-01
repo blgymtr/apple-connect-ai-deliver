@@ -40,4 +40,12 @@ export declare class AppStoreConnectClient {
         updatedLocales: string[];
         createdLocales: string[];
     }>;
+    /**
+     * Updates App Store Review Information (contact details, demo account, reviewer notes).
+     */
+    updateReviewDetails(versionId: string, attributes: import('../types').AppStoreReviewDetailAttributes): Promise<void>;
+    /**
+     * Submits the target version for App Store Review.
+     */
+    submitForReview(versionId: string): Promise<void>;
 }

@@ -311,4 +311,93 @@ export class AppStoreConnectClient {
 
     return { updatedLocales, createdLocales };
   }
+
+  /**
+   * Updates App Store Review Information (contact details, demo account, reviewer notes).
+   */
+  async updateReviewDetails(
+    versionId: string,
+    attributes: import('../types').AppStoreReviewDetailAttributes
+  ): Promise<void> {
+    if (this.dryRun) {
+      logger.info(`[DRY-RUN] App Store Review Detail update:`);
+      if (attributes.contactEmail) console.log(`  Contact Email: ${attributes.contactEmail}`);
+      if (attributes.demoAccountName) console.log(`  Demo Account: ${attributes.demoAccountName}`);
+      if (attributes.notes) console.log(`  Reviewer Notes: ${attributes.notes.substring(0, 100)}...`);
+      return;
+    }
+
+    logger.info(`Fetching App Store Review Detail for version ${versionId}...`);
+    let existingReviewDetail: import('../types').AppStoreReviewDetail | null = null;
+    try {
+      const res = await this.request<{ data: import('../types').AppStoreReviewDetail }>(`/appStoreVersions/${versionId}/appStoreReviewDetail`);
+      existingReviewDetail = res.data || null;
+    } catch {
+      // not yet created
+    }
+
+    if (existingReviewDetail && existingReviewDetail.id) {
+      logger.info(`Updating App Store Review Detail (ID: ${existingReviewDetail.id})...`);
+      await this.request(`/appStoreReviewDetails/${existingReviewDetail.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          data: {
+            type: 'appStoreReviewDetails',
+            id: existingReviewDetail.id,
+            attributes
+          }
+        })
+      });
+      logger.success('App Store Review Details updated successfully.');
+    } else {
+      logger.info(`Creating App Store Review Detail...`);
+      await this.request(`/appStoreReviewDetails`, {
+        method: 'POST',
+        body: JSON.stringify({
+          data: {
+            type: 'appStoreReviewDetails',
+            attributes,
+            relationships: {
+              appStoreVersion: {
+                data: {
+                  type: 'appStoreVersions',
+                  id: versionId
+                }
+              }
+            }
+          }
+        })
+      });
+      logger.success('App Store Review Details created successfully.');
+    }
+  }
+
+  /**
+   * Submits the target version for App Store Review.
+   */
+  async submitForReview(versionId: string): Promise<void> {
+    if (this.dryRun) {
+      logger.info(`[DRY-RUN] Would submit version ${versionId} for App Store review.`);
+      return;
+    }
+
+    logger.info(`Submitting App Store version ${versionId} for review...`);
+    await this.request(`/appStoreVersionSubmissions`, {
+      method: 'POST',
+      body: JSON.stringify({
+        data: {
+          type: 'appStoreVersionSubmissions',
+          relationships: {
+            appStoreVersion: {
+              data: {
+                type: 'appStoreVersions',
+                id: versionId
+              }
+            }
+          }
+        }
+      })
+    });
+    logger.success('🚀 Version submitted for App Store review successfully!');
+  }
 }

@@ -6,4 +6,10 @@ export declare function buildStorefrontPrompt(gitContext: ExtractedGitContext, o
 export declare function sanitizeASOKeywords(raw: string): string;
 export declare function sanitizeSubtitle(raw: string): string;
 export declare function sanitizePromotionalText(raw: string): string;
+export declare function buildReviewNotesPrompt(gitContext: ExtractedGitContext, options: {
+    appContext?: string;
+    demoUser?: string;
+    demoPassword?: string;
+    version?: string;
+}): string;
 export declare function parseJsonResponse<T>(raw: string): T;

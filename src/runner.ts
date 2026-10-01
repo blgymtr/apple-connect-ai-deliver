@@ -1,17 +1,22 @@
 import * as core from '@actions/core';
-import { ActionConfig, LocalizedStorefrontOutput, ReleaseNotesOutput } from './types';
+import { ActionConfig, AppStoreReviewDetailAttributes, LocalizedStorefrontOutput, ReleaseNotesOutput } from './types';
 import { logger } from './utils/logger';
 import { extractGitCommits } from './git/commits';
 import { createAIProvider } from './ai/factory';
 import { AppStoreConnectClient } from './apple/client';
-import { saveReleaseNotesToDisk, saveStorefrontToDisk } from './utils/exporter';
+import { saveReleaseNotesToDisk, saveReviewInfoToDisk, saveStorefrontToDisk } from './utils/exporter';
+import { buildReviewNotesPrompt } from './ai/prompts';
 import { upsertPRComment } from './github/pr';
 import { sendWebhookNotification } from './notifications/webhook';
+import { scanPrivacyInWorkspace, PrivacyReport } from './scanner/privacy';
 
 export interface RunResult {
   version: string;
   releaseNotes: ReleaseNotesOutput;
   storefront?: LocalizedStorefrontOutput;
+  reviewNotes?: string;
+  submittedForReview?: boolean;
+  privacyReport?: PrivacyReport;
   status: 'updated' | 'dry-run-preview';
 }
 
@@ -80,6 +85,38 @@ export async function runAction(config: ActionConfig): Promise<RunResult> {
     logger.endGroup();
   }
 
+  // 2.5 Generate / Process Review Notes & Information
+  let reviewDetail: AppStoreReviewDetailAttributes | undefined;
+  let generatedReviewNotes = config.reviewNotes;
+
+  if (config.generateReviewNotes || config.reviewNotes || config.demoUser || config.contactEmail) {
+    if (config.generateReviewNotes) {
+      logger.group(`Generating App Reviewer Notes via ${config.provider.toUpperCase()}`, () => {});
+      const reviewPrompt = buildReviewNotesPrompt(gitContext, {
+        appContext: config.appContext,
+        demoUser: config.demoUser,
+        demoPassword: config.demoPassword,
+        version: config.version
+      });
+      generatedReviewNotes = await aiProvider.generateText(reviewPrompt);
+      console.log(`\n--- [App Reviewer Notes] ---`);
+      console.log(generatedReviewNotes);
+      console.log(`----------------------------\n`);
+      logger.endGroup();
+    }
+
+    reviewDetail = {
+      contactFirstName: config.contactFirstName,
+      contactLastName: config.contactLastName,
+      contactPhone: config.contactPhone,
+      contactEmail: config.contactEmail,
+      demoAccountName: config.demoUser,
+      demoAccountPassword: config.demoPassword,
+      demoAccountRequired: !!config.demoUser,
+      notes: generatedReviewNotes || undefined
+    };
+  }
+
   // 3. Optional: Save to disk (e.g. Fastlane directory)
   if (config.saveToDisk) {
     logger.group(`Step 3: Saving to Local Disk (${config.saveToDisk})`, () => {});
@@ -88,12 +125,31 @@ export async function runAction(config: ActionConfig): Promise<RunResult> {
     } else {
       saveReleaseNotesToDisk(config.saveToDisk, releaseNotes);
     }
+    if (reviewDetail) {
+      saveReviewInfoToDisk(config.saveToDisk, reviewDetail);
+    }
+    logger.endGroup();
+  }
+
+  // 3.5 Optional: Privacy Nutrition Labels Scanner
+  let privacyReport: PrivacyReport | undefined;
+  if (config.scanPrivacy) {
+    logger.group('Step: Scanning Apple Privacy Nutrition Labels', () => {});
+    privacyReport = scanPrivacyInWorkspace();
+    console.log(`\n${privacyReport.markdownSummary}\n`);
+    if (config.saveToDisk) {
+      const fs = await import('fs');
+      const path = await import('path');
+      fs.writeFileSync(path.join(config.saveToDisk, 'privacy_report.md'), privacyReport.markdownSummary, 'utf-8');
+      logger.success(`Wrote privacy report to ${path.join(config.saveToDisk, 'privacy_report.md')}`);
+    }
     logger.endGroup();
   }
 
   // 4. Update App Store Connect
   let targetVersionString = config.version || 'unknown';
   let status: 'updated' | 'dry-run-preview' = config.dryRun ? 'dry-run-preview' : 'updated';
+  let submittedForReview = false;
 
   if (!config.dryRun && config.appId && config.ascKeyId && config.ascIssuerId && config.ascPrivateKey) {
     logger.group('Step 4: Updating App Store Connect API', () => {});
@@ -123,9 +179,35 @@ export async function runAction(config: ActionConfig): Promise<RunResult> {
       );
       logger.success(`App Store Connect release notes update complete! Updated: [${updatedLocales.join(', ')}], Created: [${createdLocales.join(', ')}]`);
     }
+
+    if (reviewDetail) {
+      await appleClient.updateReviewDetails(targetVersion.id, reviewDetail);
+    }
+
+    if (config.submitForReview) {
+      logger.group('Submitting App Store Version for Review', () => {});
+      await appleClient.submitForReview(targetVersion.id);
+      submittedForReview = true;
+      logger.endGroup();
+    }
+
     logger.endGroup();
   } else if (config.dryRun) {
     logger.info('[DRY-RUN] Skipped App Store Connect API calls as dry_run is enabled.');
+    if (reviewDetail) {
+      const appleClient = new AppStoreConnectClient({
+        appId: config.appId || 'mock',
+        keyId: config.ascKeyId || 'mock',
+        issuerId: config.ascIssuerId || 'mock',
+        privateKey: config.ascPrivateKey || 'mock',
+        dryRun: true
+      });
+      await appleClient.updateReviewDetails('mock-version', reviewDetail);
+    }
+    if (config.submitForReview) {
+      logger.info(`[DRY-RUN] Would submit version for App Store Review.`);
+      submittedForReview = true;
+    }
   }
 
   // 5. Post Sticky Pull Request Comment (if in PR context)
@@ -163,6 +245,9 @@ export async function runAction(config: ActionConfig): Promise<RunResult> {
     version: targetVersionString,
     releaseNotes,
     storefront: storefrontData,
+    reviewNotes: generatedReviewNotes,
+    submittedForReview,
+    privacyReport,
     status
   };
 }

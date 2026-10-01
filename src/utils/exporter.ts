@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { LocalizedStorefrontOutput, ReleaseNotesOutput } from '../types';
+import { AppStoreReviewDetailAttributes, LocalizedStorefrontOutput, ReleaseNotesOutput } from '../types';
 import { logger } from './logger';
 
 export function saveReleaseNotesToDisk(basePath: string, releaseNotes: ReleaseNotesOutput): void {
@@ -37,4 +37,22 @@ export function saveStorefrontToDisk(basePath: string, storefrontData: Localized
 
     logger.success(`Wrote storefront metadata files for '${locale}'.`);
   }
+}
+
+export function saveReviewInfoToDisk(basePath: string, reviewInfo: AppStoreReviewDetailAttributes): void {
+  const resolvedBase = path.resolve(process.cwd(), basePath);
+  const reviewDir = path.join(resolvedBase, 'review_information');
+  if (!fs.existsSync(reviewDir)) {
+    fs.mkdirSync(reviewDir, { recursive: true });
+  }
+
+  if (reviewInfo.contactFirstName) fs.writeFileSync(path.join(reviewDir, 'first_name.txt'), reviewInfo.contactFirstName, 'utf-8');
+  if (reviewInfo.contactLastName) fs.writeFileSync(path.join(reviewDir, 'last_name.txt'), reviewInfo.contactLastName, 'utf-8');
+  if (reviewInfo.contactPhone) fs.writeFileSync(path.join(reviewDir, 'phone_number.txt'), reviewInfo.contactPhone, 'utf-8');
+  if (reviewInfo.contactEmail) fs.writeFileSync(path.join(reviewDir, 'email_address.txt'), reviewInfo.contactEmail, 'utf-8');
+  if (reviewInfo.demoAccountName) fs.writeFileSync(path.join(reviewDir, 'demo_user.txt'), reviewInfo.demoAccountName, 'utf-8');
+  if (reviewInfo.demoAccountPassword) fs.writeFileSync(path.join(reviewDir, 'demo_password.txt'), reviewInfo.demoAccountPassword, 'utf-8');
+  if (reviewInfo.notes) fs.writeFileSync(path.join(reviewDir, 'notes.txt'), reviewInfo.notes, 'utf-8');
+
+  logger.success(`Wrote review_information files to ${reviewDir}`);
 }
