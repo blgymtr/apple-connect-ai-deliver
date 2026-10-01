@@ -1,5 +1,6 @@
 export type AIProviderType = 'gemini' | 'claude' | 'openai';
 export type ReleaseNotesStyle = 'bullet-points' | 'emojis' | 'minimal' | 'detailed';
+export type DeliveryMode = 'release-notes-only' | 'full-storefront';
 export interface ActionConfig {
     provider: AIProviderType;
     model?: string;
@@ -13,11 +14,23 @@ export interface ActionConfig {
     style: ReleaseNotesStyle;
     gitSince: string;
     appContext?: string;
+    appCategory?: string;
+    mode?: DeliveryMode;
     dryRun: boolean;
     saveToDisk?: string;
     githubToken?: string;
     prComment?: boolean;
     webhookUrl?: string;
+}
+export interface StorefrontMetadata {
+    whatsNew?: string;
+    subtitle?: string;
+    keywords?: string;
+    promotionalText?: string;
+    description?: string;
+}
+export interface LocalizedStorefrontOutput {
+    [locale: string]: StorefrontMetadata;
 }
 export interface ReleaseNotesOutput {
     [locale: string]: string;
@@ -67,4 +80,23 @@ export interface AppStoreVersionLocalization {
     id: string;
     type: 'appStoreVersionLocalizations';
     attributes: AppStoreVersionLocalizationAttributes;
+}
+export interface AppInfoLocalizationAttributes {
+    locale: string;
+    name?: string;
+    subtitle?: string;
+    privacyPolicyUrl?: string;
+}
+export interface AppInfoLocalization {
+    id: string;
+    type: 'appInfoLocalizations';
+    attributes: AppInfoLocalizationAttributes;
+}
+export interface AppInfo {
+    id: string;
+    type: 'appInfos';
+    attributes: {
+        appStoreState?: string;
+        appStoreAgeRating?: string;
+    };
 }

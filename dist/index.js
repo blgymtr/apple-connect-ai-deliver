@@ -29923,10 +29923,43 @@ function wrappy (fn, cb) {
 /***/ }),
 
 /***/ 6406:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
 
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ClaudeProvider = void 0;
 const prompts_1 = __nccwpck_require__(289);
@@ -29982,6 +30015,23 @@ class ClaudeProvider {
         const userPrompt = (0, prompts_1.buildReleaseNotesPrompt)(gitContext, options);
         const rawResponse = await this.generateText(userPrompt, systemPrompt);
         return (0, prompts_1.parseJsonResponse)(rawResponse);
+    }
+    async generateStorefront(gitContext, options) {
+        const systemPrompt = (0, prompts_1.buildSystemPrompt)();
+        const { buildStorefrontPrompt, sanitizeASOKeywords, sanitizeSubtitle, sanitizePromotionalText } = await Promise.resolve().then(() => __importStar(__nccwpck_require__(289)));
+        const userPrompt = buildStorefrontPrompt(gitContext, options);
+        const rawResponse = await this.generateText(userPrompt, systemPrompt);
+        const parsed = (0, prompts_1.parseJsonResponse)(rawResponse);
+        for (const locale of Object.keys(parsed)) {
+            const meta = parsed[locale];
+            if (meta.keywords)
+                meta.keywords = sanitizeASOKeywords(meta.keywords);
+            if (meta.subtitle)
+                meta.subtitle = sanitizeSubtitle(meta.subtitle);
+            if (meta.promotionalText)
+                meta.promotionalText = sanitizePromotionalText(meta.promotionalText);
+        }
+        return parsed;
     }
 }
 exports.ClaudeProvider = ClaudeProvider;
@@ -30039,10 +30089,43 @@ function createAIProvider(options) {
 /***/ }),
 
 /***/ 9055:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
 
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.GeminiProvider = void 0;
 const prompts_1 = __nccwpck_require__(289);
@@ -30129,6 +30212,55 @@ class GeminiProvider {
         }
         return (0, prompts_1.parseJsonResponse)(text);
     }
+    async generateStorefront(gitContext, options) {
+        const systemPrompt = (0, prompts_1.buildSystemPrompt)();
+        const { buildStorefrontPrompt, sanitizeASOKeywords, sanitizeSubtitle, sanitizePromotionalText } = await Promise.resolve().then(() => __importStar(__nccwpck_require__(289)));
+        const userPrompt = buildStorefrontPrompt(gitContext, options);
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
+        const body = {
+            contents: [
+                {
+                    role: 'user',
+                    parts: [{ text: userPrompt }]
+                }
+            ],
+            systemInstruction: {
+                parts: [{ text: systemPrompt }]
+            },
+            generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.3
+            }
+        };
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Gemini API error (${response.status} ${response.statusText}): ${errorText}`);
+        }
+        const data = (await response.json());
+        const candidate = data.candidates?.[0];
+        const text = candidate?.content?.parts?.[0]?.text;
+        if (!text) {
+            throw new Error(`Gemini API returned no text: ${JSON.stringify(data)}`);
+        }
+        const parsed = (0, prompts_1.parseJsonResponse)(text);
+        for (const locale of Object.keys(parsed)) {
+            const meta = parsed[locale];
+            if (meta.keywords)
+                meta.keywords = sanitizeASOKeywords(meta.keywords);
+            if (meta.subtitle)
+                meta.subtitle = sanitizeSubtitle(meta.subtitle);
+            if (meta.promotionalText)
+                meta.promotionalText = sanitizePromotionalText(meta.promotionalText);
+        }
+        return parsed;
+    }
 }
 exports.GeminiProvider = GeminiProvider;
 
@@ -30136,10 +30268,43 @@ exports.GeminiProvider = GeminiProvider;
 /***/ }),
 
 /***/ 5378:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
 
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.OpenAIProvider = void 0;
 const prompts_1 = __nccwpck_require__(289);
@@ -30218,6 +30383,50 @@ class OpenAIProvider {
         }
         return (0, prompts_1.parseJsonResponse)(content);
     }
+    async generateStorefront(gitContext, options) {
+        const systemPrompt = (0, prompts_1.buildSystemPrompt)();
+        const { buildStorefrontPrompt, sanitizeASOKeywords, sanitizeSubtitle, sanitizePromotionalText } = await Promise.resolve().then(() => __importStar(__nccwpck_require__(289)));
+        const userPrompt = buildStorefrontPrompt(gitContext, options);
+        const url = 'https://api.openai.com/v1/chat/completions';
+        const messages = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+        ];
+        const body = {
+            model: this.model,
+            temperature: 0.3,
+            messages,
+            response_format: { type: 'json_object' }
+        };
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`OpenAI API error (${response.status} ${response.statusText}): ${errorText}`);
+        }
+        const data = (await response.json());
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) {
+            throw new Error(`OpenAI API returned empty response: ${JSON.stringify(data)}`);
+        }
+        const parsed = (0, prompts_1.parseJsonResponse)(content);
+        for (const locale of Object.keys(parsed)) {
+            const meta = parsed[locale];
+            if (meta.keywords)
+                meta.keywords = sanitizeASOKeywords(meta.keywords);
+            if (meta.subtitle)
+                meta.subtitle = sanitizeSubtitle(meta.subtitle);
+            if (meta.promotionalText)
+                meta.promotionalText = sanitizePromotionalText(meta.promotionalText);
+        }
+        return parsed;
+    }
 }
 exports.OpenAIProvider = OpenAIProvider;
 
@@ -30232,17 +30441,26 @@ exports.OpenAIProvider = OpenAIProvider;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.buildSystemPrompt = buildSystemPrompt;
 exports.buildReleaseNotesPrompt = buildReleaseNotesPrompt;
+exports.buildStorefrontPrompt = buildStorefrontPrompt;
+exports.sanitizeASOKeywords = sanitizeASOKeywords;
+exports.sanitizeSubtitle = sanitizeSubtitle;
+exports.sanitizePromotionalText = sanitizePromotionalText;
 exports.parseJsonResponse = parseJsonResponse;
 function buildSystemPrompt() {
     return `You are an expert iOS Mobile Product Manager and App Store Optimization (ASO) specialist.
-Your task is to write compelling, clear, user-facing Apple App Store release notes ("What's New") for an upcoming iOS application update.
+Your task is to write compelling, clear, user-facing Apple App Store release notes ("What's New") and storefront metadata.
 
 CRITICAL APPLE APP STORE GUIDELINES:
-1. USER-FACING FOCUS: Translate technical commits and developer jargon into benefits the end user cares about. (e.g. instead of "fixed race condition in AuthTokenHandler", write "Fixed an issue that could cause unexpected logouts").
+1. USER-FACING FOCUS: Translate technical commits and developer jargon into benefits the end user cares about.
 2. NO MENTION OF COMPETITORS: NEVER mention Android, Google Play, Windows, or other non-Apple platforms. Apple App Review will immediately reject updates referencing other platforms.
 3. NO INTERNAL IDs: Strip out Jira/Linear/GitHub issue numbers, commit SHAs, or internal acronyms.
-4. CHAR LIMIT: Must be under 4000 characters per language (aim for 200 - 800 characters for high readability).
-5. NATIVE TONE: For each requested language, write in natural, native-sounding phrasing (not literal word-by-word machine translation).
+4. CHAR LIMITS:
+   - "keywords": MAXIMUM 100 CHARACTERS strictly! Single comma-separated words with NO SPACES (e.g. "fitness,workout,gym,tracker").
+   - "subtitle": MAXIMUM 30 CHARACTERS strictly!
+   - "promotionalText": MAXIMUM 170 CHARACTERS strictly!
+   - "description": Under 4000 characters.
+   - "whatsNew": Under 4000 characters (aim for 200 - 800 characters).
+5. NATIVE TONE: For each requested language, write in natural, native-sounding phrasing.
 6. FORMAT: Respond ONLY with a valid JSON object matching the requested schema.`;
 }
 function buildReleaseNotesPrompt(gitContext, options) {
@@ -30283,6 +30501,85 @@ Example:
   "tr": "• Türkçe yenilikler metni..."
 }
 `;
+}
+function buildStorefrontPrompt(gitContext, options) {
+    const { locales, style, appContext, appCategory, version } = options;
+    const formattedCommits = gitContext.commits.slice(0, 30).map(c => `- ${c.subject}`).join('\n');
+    return `You are a world-class App Store Optimization (ASO) specialist.
+Please generate comprehensive Apple App Store metadata for version ${version || 'next'}.
+
+### App Category:
+${appCategory || 'General Utility / Productivity'}
+
+### App Context:
+${appContext || 'High quality iOS mobile application.'}
+
+### Target Locales:
+${locales.join(', ')}
+
+### Recent Changes:
+${formattedCommits || 'Quality improvements and enhancements.'}
+
+### CRITICAL APPLE STOREFRONT CONSTRAINTS:
+1. "keywords": MAXIMUM 100 CHARACTERS strictly! Single comma-separated words with NO SPACES (e.g. "fitness,workout,gym,tracker,calorie,health,coach"). Highest search intent, zero repetition.
+2. "subtitle": MAXIMUM 30 CHARACTERS strictly! Punchy, high-converting slogan.
+3. "promotionalText": MAXIMUM 170 CHARACTERS strictly! Highlights latest update or top value prop.
+4. "description": Detailed feature breakdown, benefits, social proof (under 4000 chars).
+5. "whatsNew": User-friendly release notes matching style "${style}".
+
+### OUTPUT REQUIREMENT:
+Respond with ONLY a raw JSON object where each key is a locale code:
+{
+  "en-US": {
+    "whatsNew": "• Features and fixes...",
+    "subtitle": "Track workouts easily",
+    "keywords": "workout,gym,fitness,tracker,routine,exercise,planner",
+    "promotionalText": "Special update with enhanced tracking features!",
+    "description": "Welcome to the best fitness experience on iOS..."
+  }
+}
+`;
+}
+function sanitizeASOKeywords(raw) {
+    if (!raw)
+        return '';
+    const parts = raw
+        .toLowerCase()
+        .split(/[,;\n]+/)
+        .map(w => w.trim().replace(/[^a-z0-9ğüşıöç\-_]/gi, ''))
+        .filter(w => w.length > 1);
+    const unique = Array.from(new Set(parts));
+    const selected = [];
+    let currentLen = 0;
+    for (const word of unique) {
+        const nextLen = selected.length === 0 ? word.length : currentLen + 1 + word.length;
+        if (nextLen <= 100) {
+            selected.push(word);
+            currentLen = nextLen;
+        }
+        else {
+            break;
+        }
+    }
+    return selected.join(',');
+}
+function sanitizeSubtitle(raw) {
+    if (!raw)
+        return '';
+    let sub = raw.trim().replace(/^["']|["']$/g, '');
+    if (sub.length > 30) {
+        sub = sub.substring(0, 30).trim();
+    }
+    return sub;
+}
+function sanitizePromotionalText(raw) {
+    if (!raw)
+        return '';
+    let promo = raw.trim();
+    if (promo.length > 170) {
+        promo = promo.substring(0, 170).trim();
+    }
+    return promo;
 }
 function parseJsonResponse(raw) {
     let cleaned = raw.trim();
@@ -30592,6 +30889,120 @@ class AppStoreConnectClient {
         }
         return { updatedLocales, createdLocales };
     }
+    /**
+     * Updates full storefront metadata (WhatsNew, Description, Keywords, PromotionalText, Subtitle).
+     */
+    async updateStorefrontMetadata(versionId, metadataByLocale) {
+        const existingVersionLocs = await this.getVersionLocalizations(versionId);
+        const existingVersionLocMap = new Map();
+        for (const loc of existingVersionLocs) {
+            existingVersionLocMap.set(loc.attributes.locale, loc);
+        }
+        // Try fetching AppInfo for subtitles
+        let appInfoId = '';
+        const existingAppInfoLocMap = new Map();
+        try {
+            const appInfoRes = await this.request(`/apps/${this.appId}/appInfos`);
+            if (appInfoRes.data && appInfoRes.data.length > 0) {
+                appInfoId = appInfoRes.data[0].id;
+                const appInfoLocs = await this.request(`/appInfos/${appInfoId}/appInfoLocalizations`);
+                for (const loc of appInfoLocs.data || []) {
+                    existingAppInfoLocMap.set(loc.attributes.locale, loc);
+                }
+            }
+        }
+        catch (err) {
+            logger_1.logger.warn(`Could not fetch AppInfo localizations for subtitle: ${err.message}`);
+        }
+        const updatedLocales = [];
+        const createdLocales = [];
+        for (const [locale, meta] of Object.entries(metadataByLocale)) {
+            if (!meta)
+                continue;
+            if (this.dryRun) {
+                logger_1.logger.info(`[DRY-RUN] Storefront metadata for locale '${locale}':`);
+                if (meta.subtitle)
+                    console.log(`  Subtitle (${meta.subtitle.length}/30): ${meta.subtitle}`);
+                if (meta.keywords)
+                    console.log(`  Keywords (${meta.keywords.length}/100): ${meta.keywords}`);
+                if (meta.promotionalText)
+                    console.log(`  Promo Text (${meta.promotionalText.length}/170): ${meta.promotionalText}`);
+                if (meta.whatsNew)
+                    console.log(`  What's New: ${meta.whatsNew.substring(0, 100)}...`);
+                updatedLocales.push(locale);
+                continue;
+            }
+            // 1. Update/Create version localization (whatsNew, description, keywords, promotionalText)
+            const existingVerLoc = existingVersionLocMap.get(locale);
+            const attributes = {};
+            if (meta.whatsNew)
+                attributes.whatsNew = meta.whatsNew;
+            if (meta.description)
+                attributes.description = meta.description;
+            if (meta.keywords)
+                attributes.keywords = meta.keywords;
+            if (meta.promotionalText)
+                attributes.promotionalText = meta.promotionalText;
+            if (existingVerLoc) {
+                logger_1.logger.info(`Updating version localization for '${locale}'...`);
+                await this.request(`/appStoreVersionLocalizations/${existingVerLoc.id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        data: {
+                            type: 'appStoreVersionLocalizations',
+                            id: existingVerLoc.id,
+                            attributes
+                        }
+                    })
+                });
+                updatedLocales.push(locale);
+            }
+            else {
+                logger_1.logger.info(`Creating version localization for '${locale}'...`);
+                await this.request(`/appStoreVersionLocalizations`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        data: {
+                            type: 'appStoreVersionLocalizations',
+                            attributes: {
+                                locale,
+                                ...attributes
+                            },
+                            relationships: {
+                                appStoreVersion: {
+                                    data: {
+                                        type: 'appStoreVersions',
+                                        id: versionId
+                                    }
+                                }
+                            }
+                        }
+                    })
+                });
+                createdLocales.push(locale);
+            }
+            // 2. Update subtitle if appInfoId exists and subtitle provided
+            if (appInfoId && meta.subtitle) {
+                const existingAppInfoLoc = existingAppInfoLocMap.get(locale);
+                if (existingAppInfoLoc) {
+                    logger_1.logger.info(`Updating subtitle for '${locale}'...`);
+                    await this.request(`/appInfoLocalizations/${existingAppInfoLoc.id}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({
+                            data: {
+                                type: 'appInfoLocalizations',
+                                id: existingAppInfoLoc.id,
+                                attributes: {
+                                    subtitle: meta.subtitle
+                                }
+                            }
+                        })
+                    });
+                }
+            }
+        }
+        return { updatedLocales, createdLocales };
+    }
 }
 exports.AppStoreConnectClient = AppStoreConnectClient;
 
@@ -30670,6 +31081,8 @@ function loadConfig(overrides = {}) {
     const style = (overrides.style || getInput('style', 'RELEASE_NOTES_STYLE', 'bullet-points'));
     const gitSince = overrides.gitSince || getInput('git_since', 'GIT_SINCE', 'auto');
     const appContext = overrides.appContext || getInput('app_context', 'APP_CONTEXT', '');
+    const appCategory = overrides.appCategory || getInput('app_category', 'APP_CATEGORY', '');
+    const mode = (overrides.mode || getInput('mode', 'DELIVERY_MODE', 'release-notes-only'));
     const dryRunStr = overrides.dryRun !== undefined
         ? String(overrides.dryRun)
         : getInput('dry_run', 'DRY_RUN', 'false');
@@ -30712,6 +31125,8 @@ function loadConfig(overrides = {}) {
         style,
         gitSince,
         appContext: appContext || undefined,
+        appCategory: appCategory || undefined,
+        mode: mode || 'release-notes-only',
         dryRun,
         saveToDisk: saveToDisk || undefined,
         githubToken: githubToken || undefined,
@@ -31021,6 +31436,9 @@ async function main() {
         const config = (0, config_1.loadConfig)();
         const result = await (0, runner_1.runAction)(config);
         core.setOutput('release_notes_json', JSON.stringify(result.releaseNotes));
+        if (result.storefront) {
+            core.setOutput('storefront_json', JSON.stringify(result.storefront));
+        }
         core.setOutput('app_version', result.version);
         core.setOutput('status', result.status);
     }
@@ -31161,30 +31579,64 @@ async function runAction(config) {
     logger_1.logger.group('Step 1: Extracting Git History', () => { });
     const gitContext = (0, commits_1.extractGitCommits)(config.gitSince);
     logger_1.logger.endGroup();
-    // 2. Generate Release Notes via AI
-    logger_1.logger.group(`Step 2: Generating Release Notes using ${config.provider.toUpperCase()}`, () => { });
+    // 2. Generate Release Notes or Full Storefront via AI
+    const isFullStorefront = config.mode === 'full-storefront';
+    let storefrontData;
+    let releaseNotes = {};
     const aiProvider = (0, factory_1.createAIProvider)({
         provider: config.provider,
         apiKey: config.apiKey,
         model: config.model
     });
-    const releaseNotes = await aiProvider.generateReleaseNotes(gitContext, {
-        locales: config.locales,
-        style: config.style,
-        appContext: config.appContext,
-        version: config.version
-    });
-    logger_1.logger.success('Release notes generated successfully for all target locales:');
-    for (const [locale, notes] of Object.entries(releaseNotes)) {
-        console.log(`\n--- [${locale}] Release Notes ---`);
-        console.log(notes);
-        console.log('--------------------------------\n');
+    if (isFullStorefront) {
+        logger_1.logger.group(`Step 2: Generating Full ASO Storefront Metadata using ${config.provider.toUpperCase()}`, () => { });
+        storefrontData = await aiProvider.generateStorefront(gitContext, {
+            locales: config.locales,
+            style: config.style,
+            appContext: config.appContext,
+            appCategory: config.appCategory,
+            version: config.version
+        });
+        for (const [locale, meta] of Object.entries(storefrontData)) {
+            releaseNotes[locale] = meta.whatsNew || '';
+            console.log(`\n=== [${locale}] ASO Storefront Metadata ===`);
+            if (meta.subtitle)
+                console.log(`📌 Subtitle (${meta.subtitle.length}/30): ${meta.subtitle}`);
+            if (meta.keywords)
+                console.log(`🔑 Keywords (${meta.keywords.length}/100): ${meta.keywords}`);
+            if (meta.promotionalText)
+                console.log(`📢 Promo Text (${meta.promotionalText.length}/170): ${meta.promotionalText}`);
+            if (meta.whatsNew)
+                console.log(`📝 What's New:\n${meta.whatsNew}`);
+            console.log(`==========================================\n`);
+        }
+        logger_1.logger.endGroup();
     }
-    logger_1.logger.endGroup();
+    else {
+        logger_1.logger.group(`Step 2: Generating Release Notes using ${config.provider.toUpperCase()}`, () => { });
+        releaseNotes = await aiProvider.generateReleaseNotes(gitContext, {
+            locales: config.locales,
+            style: config.style,
+            appContext: config.appContext,
+            version: config.version
+        });
+        logger_1.logger.success('Release notes generated successfully for all target locales:');
+        for (const [locale, notes] of Object.entries(releaseNotes)) {
+            console.log(`\n--- [${locale}] Release Notes ---`);
+            console.log(notes);
+            console.log('--------------------------------\n');
+        }
+        logger_1.logger.endGroup();
+    }
     // 3. Optional: Save to disk (e.g. Fastlane directory)
     if (config.saveToDisk) {
         logger_1.logger.group(`Step 3: Saving to Local Disk (${config.saveToDisk})`, () => { });
-        (0, exporter_1.saveReleaseNotesToDisk)(config.saveToDisk, releaseNotes);
+        if (isFullStorefront && storefrontData) {
+            (0, exporter_1.saveStorefrontToDisk)(config.saveToDisk, storefrontData);
+        }
+        else {
+            (0, exporter_1.saveReleaseNotesToDisk)(config.saveToDisk, releaseNotes);
+        }
         logger_1.logger.endGroup();
     }
     // 4. Update App Store Connect
@@ -31202,8 +31654,14 @@ async function runAction(config) {
         const targetVersion = await appleClient.findTargetVersion(config.version);
         targetVersionString = targetVersion.attributes.versionString;
         logger_1.logger.info(`Target App Store Version: ${targetVersionString} (ID: ${targetVersion.id})`);
-        const { updatedLocales, createdLocales } = await appleClient.updateReleaseNotes(targetVersion.id, releaseNotes);
-        logger_1.logger.success(`App Store Connect update complete! Updated: [${updatedLocales.join(', ')}], Created: [${createdLocales.join(', ')}]`);
+        if (isFullStorefront && storefrontData) {
+            const { updatedLocales, createdLocales } = await appleClient.updateStorefrontMetadata(targetVersion.id, storefrontData);
+            logger_1.logger.success(`App Store Connect storefront update complete! Updated: [${updatedLocales.join(', ')}], Created: [${createdLocales.join(', ')}]`);
+        }
+        else {
+            const { updatedLocales, createdLocales } = await appleClient.updateReleaseNotes(targetVersion.id, releaseNotes);
+            logger_1.logger.success(`App Store Connect release notes update complete! Updated: [${updatedLocales.join(', ')}], Created: [${createdLocales.join(', ')}]`);
+        }
         logger_1.logger.endGroup();
     }
     else if (config.dryRun) {
@@ -31242,6 +31700,7 @@ async function runAction(config) {
     return {
         version: targetVersionString,
         releaseNotes,
+        storefront: storefrontData,
         status
     };
 }
@@ -31289,6 +31748,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.saveReleaseNotesToDisk = saveReleaseNotesToDisk;
+exports.saveStorefrontToDisk = saveStorefrontToDisk;
 const fs = __importStar(__nccwpck_require__(9896));
 const path = __importStar(__nccwpck_require__(6928));
 const logger_1 = __nccwpck_require__(7893);
@@ -31303,6 +31763,27 @@ function saveReleaseNotesToDisk(basePath, releaseNotes) {
         const filePath = path.join(localeDir, 'release_notes.txt');
         fs.writeFileSync(filePath, notes, 'utf-8');
         logger_1.logger.success(`Wrote ${filePath}`);
+    }
+}
+function saveStorefrontToDisk(basePath, storefrontData) {
+    const resolvedBase = path.resolve(process.cwd(), basePath);
+    logger_1.logger.info(`Saving full storefront metadata to disk at: ${resolvedBase}`);
+    for (const [locale, meta] of Object.entries(storefrontData)) {
+        const localeDir = path.join(resolvedBase, locale);
+        if (!fs.existsSync(localeDir)) {
+            fs.mkdirSync(localeDir, { recursive: true });
+        }
+        if (meta.whatsNew)
+            fs.writeFileSync(path.join(localeDir, 'release_notes.txt'), meta.whatsNew, 'utf-8');
+        if (meta.subtitle)
+            fs.writeFileSync(path.join(localeDir, 'subtitle.txt'), meta.subtitle, 'utf-8');
+        if (meta.keywords)
+            fs.writeFileSync(path.join(localeDir, 'keywords.txt'), meta.keywords, 'utf-8');
+        if (meta.promotionalText)
+            fs.writeFileSync(path.join(localeDir, 'promotional_text.txt'), meta.promotionalText, 'utf-8');
+        if (meta.description)
+            fs.writeFileSync(path.join(localeDir, 'description.txt'), meta.description, 'utf-8');
+        logger_1.logger.success(`Wrote storefront metadata files for '${locale}'.`);
     }
 }
 

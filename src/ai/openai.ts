@@ -98,4 +98,57 @@ export class OpenAIProvider implements AIProvider {
 
     return parseJsonResponse<ReleaseNotesOutput>(content);
   }
+
+  async generateStorefront(
+    gitContext: ExtractedGitContext,
+    options: import('./types').GenerateStorefrontOptions
+  ): Promise<import('../types').LocalizedStorefrontOutput> {
+    const systemPrompt = buildSystemPrompt();
+    const { buildStorefrontPrompt, sanitizeASOKeywords, sanitizeSubtitle, sanitizePromotionalText } = await import('./prompts');
+    const userPrompt = buildStorefrontPrompt(gitContext, options);
+
+    const url = 'https://api.openai.com/v1/chat/completions';
+
+    const messages: any[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ];
+
+    const body: any = {
+      model: this.model,
+      temperature: 0.3,
+      messages,
+      response_format: { type: 'json_object' }
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OpenAI API error (${response.status} ${response.statusText}): ${errorText}`);
+    }
+
+    const data = (await response.json()) as any;
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error(`OpenAI API returned empty response: ${JSON.stringify(data)}`);
+    }
+
+    const parsed = parseJsonResponse<import('../types').LocalizedStorefrontOutput>(content);
+    for (const locale of Object.keys(parsed)) {
+      const meta = parsed[locale];
+      if (meta.keywords) meta.keywords = sanitizeASOKeywords(meta.keywords);
+      if (meta.subtitle) meta.subtitle = sanitizeSubtitle(meta.subtitle);
+      if (meta.promotionalText) meta.promotionalText = sanitizePromotionalText(meta.promotionalText);
+    }
+    return parsed;
+  }
 }

@@ -1,10 +1,14 @@
-import { ExtractedGitContext, ReleaseNotesOutput, ReleaseNotesStyle } from '../types';
+import { ExtractedGitContext, LocalizedStorefrontOutput, ReleaseNotesOutput, ReleaseNotesStyle } from '../types';
 
 export interface GenerateReleaseNotesOptions {
   locales: string[];
   style: ReleaseNotesStyle;
   appContext?: string;
   version?: string;
+}
+
+export interface GenerateStorefrontOptions extends GenerateReleaseNotesOptions {
+  appCategory?: string;
 }
 
 export interface AIProvider {
@@ -15,6 +19,11 @@ export interface AIProvider {
     gitContext: ExtractedGitContext,
     options: GenerateReleaseNotesOptions
   ): Promise<ReleaseNotesOutput>;
+
+  generateStorefront(
+    gitContext: ExtractedGitContext,
+    options: GenerateStorefrontOptions
+  ): Promise<LocalizedStorefrontOutput>;
 
   generateText(prompt: string, systemPrompt?: string): Promise<string>;
 }

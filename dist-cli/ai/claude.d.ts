@@ -7,4 +7,5 @@ export declare class ClaudeProvider implements AIProvider {
     constructor(apiKey: string, model?: string);
     generateText(prompt: string, systemPrompt?: string): Promise<string>;
     generateReleaseNotes(gitContext: ExtractedGitContext, options: GenerateReleaseNotesOptions): Promise<ReleaseNotesOutput>;
+    generateStorefront(gitContext: ExtractedGitContext, options: import('./types').GenerateStorefrontOptions): Promise<import('../types').LocalizedStorefrontOutput>;
 }

@@ -68,4 +68,24 @@ export class ClaudeProvider implements AIProvider {
     const rawResponse = await this.generateText(userPrompt, systemPrompt);
     return parseJsonResponse<ReleaseNotesOutput>(rawResponse);
   }
+
+  async generateStorefront(
+    gitContext: ExtractedGitContext,
+    options: import('./types').GenerateStorefrontOptions
+  ): Promise<import('../types').LocalizedStorefrontOutput> {
+    const systemPrompt = buildSystemPrompt();
+    const { buildStorefrontPrompt, sanitizeASOKeywords, sanitizeSubtitle, sanitizePromotionalText } = await import('./prompts');
+    const userPrompt = buildStorefrontPrompt(gitContext, options);
+
+    const rawResponse = await this.generateText(userPrompt, systemPrompt);
+    const parsed = parseJsonResponse<import('../types').LocalizedStorefrontOutput>(rawResponse);
+
+    for (const locale of Object.keys(parsed)) {
+      const meta = parsed[locale];
+      if (meta.keywords) meta.keywords = sanitizeASOKeywords(meta.keywords);
+      if (meta.subtitle) meta.subtitle = sanitizeSubtitle(meta.subtitle);
+      if (meta.promotionalText) meta.promotionalText = sanitizePromotionalText(meta.promotionalText);
+    }
+    return parsed;
+  }
 }

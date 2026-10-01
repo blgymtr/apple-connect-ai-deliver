@@ -2,6 +2,8 @@ export type AIProviderType = 'gemini' | 'claude' | 'openai';
 
 export type ReleaseNotesStyle = 'bullet-points' | 'emojis' | 'minimal' | 'detailed';
 
+export type DeliveryMode = 'release-notes-only' | 'full-storefront';
+
 export interface ActionConfig {
   provider: AIProviderType;
   model?: string;
@@ -15,11 +17,25 @@ export interface ActionConfig {
   style: ReleaseNotesStyle;
   gitSince: string;
   appContext?: string;
+  appCategory?: string;
+  mode?: DeliveryMode;
   dryRun: boolean;
   saveToDisk?: string;
   githubToken?: string;
   prComment?: boolean;
   webhookUrl?: string;
+}
+
+export interface StorefrontMetadata {
+  whatsNew?: string;
+  subtitle?: string; // Max 30 chars
+  keywords?: string; // Max 100 chars, comma-separated, no spaces
+  promotionalText?: string; // Max 170 chars
+  description?: string; // Max 4000 chars
+}
+
+export interface LocalizedStorefrontOutput {
+  [locale: string]: StorefrontMetadata;
 }
 
 export interface ReleaseNotesOutput {
@@ -76,4 +92,26 @@ export interface AppStoreVersionLocalization {
   id: string;
   type: 'appStoreVersionLocalizations';
   attributes: AppStoreVersionLocalizationAttributes;
+}
+
+export interface AppInfoLocalizationAttributes {
+  locale: string;
+  name?: string;
+  subtitle?: string;
+  privacyPolicyUrl?: string;
+}
+
+export interface AppInfoLocalization {
+  id: string;
+  type: 'appInfoLocalizations';
+  attributes: AppInfoLocalizationAttributes;
+}
+
+export interface AppInfo {
+  id: string;
+  type: 'appInfos';
+  attributes: {
+    appStoreState?: string;
+    appStoreAgeRating?: string;
+  };
 }

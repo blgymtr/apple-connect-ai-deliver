@@ -1,16 +1,17 @@
 import * as core from '@actions/core';
-import { ActionConfig, ReleaseNotesOutput } from './types';
+import { ActionConfig, LocalizedStorefrontOutput, ReleaseNotesOutput } from './types';
 import { logger } from './utils/logger';
 import { extractGitCommits } from './git/commits';
 import { createAIProvider } from './ai/factory';
 import { AppStoreConnectClient } from './apple/client';
-import { saveReleaseNotesToDisk } from './utils/exporter';
+import { saveReleaseNotesToDisk, saveStorefrontToDisk } from './utils/exporter';
 import { upsertPRComment } from './github/pr';
 import { sendWebhookNotification } from './notifications/webhook';
 
 export interface RunResult {
   version: string;
   releaseNotes: ReleaseNotesOutput;
+  storefront?: LocalizedStorefrontOutput;
   status: 'updated' | 'dry-run-preview';
 }
 
@@ -30,33 +31,63 @@ export async function runAction(config: ActionConfig): Promise<RunResult> {
   const gitContext = extractGitCommits(config.gitSince);
   logger.endGroup();
 
-  // 2. Generate Release Notes via AI
-  logger.group(`Step 2: Generating Release Notes using ${config.provider.toUpperCase()}`, () => {});
+  // 2. Generate Release Notes or Full Storefront via AI
+  const isFullStorefront = config.mode === 'full-storefront';
+  let storefrontData: LocalizedStorefrontOutput | undefined;
+  let releaseNotes: ReleaseNotesOutput = {};
+
   const aiProvider = createAIProvider({
     provider: config.provider,
     apiKey: config.apiKey,
     model: config.model
   });
 
-  const releaseNotes = await aiProvider.generateReleaseNotes(gitContext, {
-    locales: config.locales,
-    style: config.style,
-    appContext: config.appContext,
-    version: config.version
-  });
+  if (isFullStorefront) {
+    logger.group(`Step 2: Generating Full ASO Storefront Metadata using ${config.provider.toUpperCase()}`, () => {});
+    storefrontData = await aiProvider.generateStorefront(gitContext, {
+      locales: config.locales,
+      style: config.style,
+      appContext: config.appContext,
+      appCategory: config.appCategory,
+      version: config.version
+    });
 
-  logger.success('Release notes generated successfully for all target locales:');
-  for (const [locale, notes] of Object.entries(releaseNotes)) {
-    console.log(`\n--- [${locale}] Release Notes ---`);
-    console.log(notes);
-    console.log('--------------------------------\n');
+    for (const [locale, meta] of Object.entries(storefrontData)) {
+      releaseNotes[locale] = meta.whatsNew || '';
+      console.log(`\n=== [${locale}] ASO Storefront Metadata ===`);
+      if (meta.subtitle) console.log(`📌 Subtitle (${meta.subtitle.length}/30): ${meta.subtitle}`);
+      if (meta.keywords) console.log(`🔑 Keywords (${meta.keywords.length}/100): ${meta.keywords}`);
+      if (meta.promotionalText) console.log(`📢 Promo Text (${meta.promotionalText.length}/170): ${meta.promotionalText}`);
+      if (meta.whatsNew) console.log(`📝 What's New:\n${meta.whatsNew}`);
+      console.log(`==========================================\n`);
+    }
+    logger.endGroup();
+  } else {
+    logger.group(`Step 2: Generating Release Notes using ${config.provider.toUpperCase()}`, () => {});
+    releaseNotes = await aiProvider.generateReleaseNotes(gitContext, {
+      locales: config.locales,
+      style: config.style,
+      appContext: config.appContext,
+      version: config.version
+    });
+
+    logger.success('Release notes generated successfully for all target locales:');
+    for (const [locale, notes] of Object.entries(releaseNotes)) {
+      console.log(`\n--- [${locale}] Release Notes ---`);
+      console.log(notes);
+      console.log('--------------------------------\n');
+    }
+    logger.endGroup();
   }
-  logger.endGroup();
 
   // 3. Optional: Save to disk (e.g. Fastlane directory)
   if (config.saveToDisk) {
     logger.group(`Step 3: Saving to Local Disk (${config.saveToDisk})`, () => {});
-    saveReleaseNotesToDisk(config.saveToDisk, releaseNotes);
+    if (isFullStorefront && storefrontData) {
+      saveStorefrontToDisk(config.saveToDisk, storefrontData);
+    } else {
+      saveReleaseNotesToDisk(config.saveToDisk, releaseNotes);
+    }
     logger.endGroup();
   }
 
@@ -79,12 +110,19 @@ export async function runAction(config: ActionConfig): Promise<RunResult> {
 
     logger.info(`Target App Store Version: ${targetVersionString} (ID: ${targetVersion.id})`);
 
-    const { updatedLocales, createdLocales } = await appleClient.updateReleaseNotes(
-      targetVersion.id,
-      releaseNotes
-    );
-
-    logger.success(`App Store Connect update complete! Updated: [${updatedLocales.join(', ')}], Created: [${createdLocales.join(', ')}]`);
+    if (isFullStorefront && storefrontData) {
+      const { updatedLocales, createdLocales } = await appleClient.updateStorefrontMetadata(
+        targetVersion.id,
+        storefrontData
+      );
+      logger.success(`App Store Connect storefront update complete! Updated: [${updatedLocales.join(', ')}], Created: [${createdLocales.join(', ')}]`);
+    } else {
+      const { updatedLocales, createdLocales } = await appleClient.updateReleaseNotes(
+        targetVersion.id,
+        releaseNotes
+      );
+      logger.success(`App Store Connect release notes update complete! Updated: [${updatedLocales.join(', ')}], Created: [${createdLocales.join(', ')}]`);
+    }
     logger.endGroup();
   } else if (config.dryRun) {
     logger.info('[DRY-RUN] Skipped App Store Connect API calls as dry_run is enabled.');
@@ -124,6 +162,7 @@ export async function runAction(config: ActionConfig): Promise<RunResult> {
   return {
     version: targetVersionString,
     releaseNotes,
+    storefront: storefrontData,
     status
   };
 }

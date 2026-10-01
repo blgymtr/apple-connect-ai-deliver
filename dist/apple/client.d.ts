@@ -33,4 +33,11 @@ export declare class AppStoreConnectClient {
         updatedLocales: string[];
         createdLocales: string[];
     }>;
+    /**
+     * Updates full storefront metadata (WhatsNew, Description, Keywords, PromotionalText, Subtitle).
+     */
+    updateStorefrontMetadata(versionId: string, metadataByLocale: import('../types').LocalizedStorefrontOutput): Promise<{
+        updatedLocales: string[];
+        createdLocales: string[];
+    }>;
 }

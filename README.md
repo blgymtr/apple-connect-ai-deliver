@@ -103,12 +103,37 @@ jobs:
 | `git_since` | Hayır | `auto` | Commit analiz başlangıcı (`auto` son tag'i alır, veya `HEAD~15`, `v1.2.0`) |
 | `app_context` | Hayır | - | Uygulama hakkında AI'a ek bilgi (ör. "Finans ve bütçe takip uygulaması") |
 | `dry_run` | Hayır | `false` | `true` yapılırsa App Store Connect'e istek atmadan sonucu loglar |
-| `save_to_disk` | Hayır | - | Üretilen notları diske kaydetme yolu (ör. `fastlane/metadata`) |
+| `mode`         | Hayır | `release-notes-only` | `release-notes-only` (sadece yenilikler) veya `full-storefront` (100 char ASO anahtar kelimeler, 30 char alt başlık, tanıtım metni, açıklama) |
+| `app_category` | Hayır | - | ASO anahtar kelime optimizasyonu için kategori (ör. `Health & Fitness`, `Finance`, `Productivity`) |
 | `github_token` | Hayır | `${{ github.token }}` | PR önizleme yorumu için GitHub token |
 | `pr_comment`   | Hayır | `true` | PR açıldığında otomatik yapışkan önizleme yorumu ekleme/güncelleme |
 | `webhook_url`  | Hayır | - | Slack veya Discord webhook bildirim adresi |
 
 ---
+
+## 🎯 ASO (App Store Optimization) & Tam Mağaza Metaverisi
+
+`mode: 'full-storefront'` modunu kullanarak uygulamanızın sadece sürüm notlarını değil, tüm mağaza listelemesini Apple kurallarına sıfır hatayla uyumlu şekilde oluşturabilirsiniz:
+
+* **Anahtar Kelimeler (Keywords)**: Apple'ın katı **100 karakter sınırına** tam uyum sağlar. Boşluksuz, sadece virgülle ayrılmış, tekrar etmeyen ve ASO arama hacmi yüksek kelimeler üretilir.
+* **Alt Başlık (Subtitle)**: Apple'ın **30 karakter sınırını** aşmayan vurucu sloganlar.
+* **Tanıtım Metni (Promotional Text)**: **170 karakterlik** dinamik tanıtım alanı.
+* **Açıklama (Description)**: Madde imleri, sosyal kanıtlar ve özellik listeleriyle zenginleştirilmiş mağaza açıklaması.
+
+```yaml
+      - uses: blgymtr/apple-connect-ai-deliver@v1
+        with:
+          provider: 'gemini'
+          api_key: ${{ secrets.GEMINI_API_KEY }}
+          app_id: ${{ secrets.APP_STORE_APP_ID }}
+          asc_key_id: ${{ secrets.APP_STORE_KEY_ID }}
+          asc_issuer_id: ${{ secrets.APP_STORE_ISSUER_ID }}
+          asc_private_key: ${{ secrets.APP_STORE_PRIVATE_KEY }}
+          mode: 'full-storefront' # 🌟 Tam mağaza metaverisi modu
+          app_category: 'Health & Fitness'
+          locales: 'en-US,tr,de-DE'
+          save_to_disk: 'fastlane/metadata'
+```
 
 ## 💬 Pull Request (PR) Önizleme Botu
 

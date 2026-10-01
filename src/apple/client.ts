@@ -196,4 +196,119 @@ export class AppStoreConnectClient {
 
     return { updatedLocales, createdLocales };
   }
+
+  /**
+   * Updates full storefront metadata (WhatsNew, Description, Keywords, PromotionalText, Subtitle).
+   */
+  async updateStorefrontMetadata(
+    versionId: string,
+    metadataByLocale: import('../types').LocalizedStorefrontOutput
+  ): Promise<{ updatedLocales: string[]; createdLocales: string[] }> {
+    const existingVersionLocs = await this.getVersionLocalizations(versionId);
+    const existingVersionLocMap = new Map<string, AppStoreVersionLocalization>();
+    for (const loc of existingVersionLocs) {
+      existingVersionLocMap.set(loc.attributes.locale, loc);
+    }
+
+    // Try fetching AppInfo for subtitles
+    let appInfoId = '';
+    const existingAppInfoLocMap = new Map<string, import('../types').AppInfoLocalization>();
+    try {
+      const appInfoRes = await this.request<{ data: import('../types').AppInfo[] }>(`/apps/${this.appId}/appInfos`);
+      if (appInfoRes.data && appInfoRes.data.length > 0) {
+        appInfoId = appInfoRes.data[0].id;
+        const appInfoLocs = await this.request<{ data: import('../types').AppInfoLocalization[] }>(`/appInfos/${appInfoId}/appInfoLocalizations`);
+        for (const loc of appInfoLocs.data || []) {
+          existingAppInfoLocMap.set(loc.attributes.locale, loc);
+        }
+      }
+    } catch (err: any) {
+      logger.warn(`Could not fetch AppInfo localizations for subtitle: ${err.message}`);
+    }
+
+    const updatedLocales: string[] = [];
+    const createdLocales: string[] = [];
+
+    for (const [locale, meta] of Object.entries(metadataByLocale)) {
+      if (!meta) continue;
+
+      if (this.dryRun) {
+        logger.info(`[DRY-RUN] Storefront metadata for locale '${locale}':`);
+        if (meta.subtitle) console.log(`  Subtitle (${meta.subtitle.length}/30): ${meta.subtitle}`);
+        if (meta.keywords) console.log(`  Keywords (${meta.keywords.length}/100): ${meta.keywords}`);
+        if (meta.promotionalText) console.log(`  Promo Text (${meta.promotionalText.length}/170): ${meta.promotionalText}`);
+        if (meta.whatsNew) console.log(`  What's New: ${meta.whatsNew.substring(0, 100)}...`);
+        updatedLocales.push(locale);
+        continue;
+      }
+
+      // 1. Update/Create version localization (whatsNew, description, keywords, promotionalText)
+      const existingVerLoc = existingVersionLocMap.get(locale);
+      const attributes: Record<string, string> = {};
+      if (meta.whatsNew) attributes.whatsNew = meta.whatsNew;
+      if (meta.description) attributes.description = meta.description;
+      if (meta.keywords) attributes.keywords = meta.keywords;
+      if (meta.promotionalText) attributes.promotionalText = meta.promotionalText;
+
+      if (existingVerLoc) {
+        logger.info(`Updating version localization for '${locale}'...`);
+        await this.request(`/appStoreVersionLocalizations/${existingVerLoc.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            data: {
+              type: 'appStoreVersionLocalizations',
+              id: existingVerLoc.id,
+              attributes
+            }
+          })
+        });
+        updatedLocales.push(locale);
+      } else {
+        logger.info(`Creating version localization for '${locale}'...`);
+        await this.request(`/appStoreVersionLocalizations`, {
+          method: 'POST',
+          body: JSON.stringify({
+            data: {
+              type: 'appStoreVersionLocalizations',
+              attributes: {
+                locale,
+                ...attributes
+              },
+              relationships: {
+                appStoreVersion: {
+                  data: {
+                    type: 'appStoreVersions',
+                    id: versionId
+                  }
+                }
+              }
+            }
+          })
+        });
+        createdLocales.push(locale);
+      }
+
+      // 2. Update subtitle if appInfoId exists and subtitle provided
+      if (appInfoId && meta.subtitle) {
+        const existingAppInfoLoc = existingAppInfoLocMap.get(locale);
+        if (existingAppInfoLoc) {
+          logger.info(`Updating subtitle for '${locale}'...`);
+          await this.request(`/appInfoLocalizations/${existingAppInfoLoc.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              data: {
+                type: 'appInfoLocalizations',
+                id: existingAppInfoLoc.id,
+                attributes: {
+                  subtitle: meta.subtitle
+                }
+              }
+            })
+          });
+        }
+      }
+    }
+
+    return { updatedLocales, createdLocales };
+  }
 }

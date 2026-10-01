@@ -34,6 +34,8 @@ export function loadConfig(overrides: Partial<ActionConfig> = {}): ActionConfig 
   const style = (overrides.style || getInput('style', 'RELEASE_NOTES_STYLE', 'bullet-points')) as ReleaseNotesStyle;
   const gitSince = overrides.gitSince || getInput('git_since', 'GIT_SINCE', 'auto');
   const appContext = overrides.appContext || getInput('app_context', 'APP_CONTEXT', '');
+  const appCategory = overrides.appCategory || getInput('app_category', 'APP_CATEGORY', '');
+  const mode = (overrides.mode || getInput('mode', 'DELIVERY_MODE', 'release-notes-only')) as import('./types').DeliveryMode;
 
   const dryRunStr = overrides.dryRun !== undefined
     ? String(overrides.dryRun)
@@ -83,6 +85,8 @@ export function loadConfig(overrides: Partial<ActionConfig> = {}): ActionConfig 
     style,
     gitSince,
     appContext: appContext || undefined,
+    appCategory: appCategory || undefined,
+    mode: mode || 'release-notes-only',
     dryRun,
     saveToDisk: saveToDisk || undefined,
     githubToken: githubToken || undefined,

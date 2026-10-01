@@ -65,9 +65,19 @@ inputs:
     description: "Optional Slack or Discord incoming webhook URL to broadcast release notifications."
     required: false
 
+  mode:
+    description: "Delivery mode: 'release-notes-only' (default) or 'full-storefront' (generates 100-char keywords, 30-char subtitle, promotional text, description, whatsNew)."
+    required: false
+    default: "release-notes-only"
+  app_category:
+    description: "App category for targeted ASO keyword optimization (e.g. 'Health & Fitness', 'Finance', 'Productivity')."
+    required: false
+
 outputs:
   release_notes_json:
     description: "Generated release notes for each locale in JSON format: {'en-US': '...', 'tr': '...'}"
+  storefront_json:
+    description: "Full storefront metadata JSON containing keywords, subtitle, description, and whatsNew per locale."
   app_version:
     description: "The App Store version string that was updated or targeted."
   status:

@@ -8,6 +8,9 @@ async function main() {
     const result = await runAction(config);
 
     core.setOutput('release_notes_json', JSON.stringify(result.releaseNotes));
+    if (result.storefront) {
+      core.setOutput('storefront_json', JSON.stringify(result.storefront));
+    }
     core.setOutput('app_version', result.version);
     core.setOutput('status', result.status);
   } catch (error: any) {
