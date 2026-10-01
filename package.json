@@ -1,0 +1,45 @@
+{
+  "name": "apple-store-ai-action",
+  "version": "1.0.0",
+  "description": "GitHub Action & CLI to automatically generate Apple App Store metadata and release notes from git commits using Claude, OpenAI/Codex, or Gemini, and deploy directly to App Store Connect API.",
+  "main": "dist/index.js",
+  "bin": {
+    "appstore-ai": "bin/cli.js"
+  },
+  "scripts": {
+    "build": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
+    "build:cli": "ncc build src/cli.ts -o dist-cli --source-map",
+    "compile": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "github-action",
+    "apple",
+    "app-store-connect",
+    "fastlane",
+    "ai",
+    "gemini",
+    "claude",
+    "openai",
+    "codex",
+    "ios",
+    "release-notes",
+    "metadata"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@vercel/ncc": "^0.38.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

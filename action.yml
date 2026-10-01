@@ -1,0 +1,67 @@
+name: "Apple Store AI Connect Action"
+description: "Automatically generate Apple App Store metadata & release notes from git commits using Gemini, Claude, or OpenAI, and update App Store Connect."
+author: "Antigravity"
+branding:
+  icon: "upload-cloud"
+  color: "blue"
+
+inputs:
+  provider:
+    description: "AI Provider to use ('gemini', 'claude', or 'openai')"
+    required: false
+    default: "gemini"
+  model:
+    description: "Specific model to use (defaults: gemini-2.0-flash, claude-3-7-sonnet-20250219, gpt-4o)"
+    required: false
+  api_key:
+    description: "API key for the selected AI provider (can also be set via GEMINI_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY)"
+    required: false
+  app_id:
+    description: "Apple App Store Connect App ID (e.g. '1234567890')"
+    required: true
+  asc_key_id:
+    description: "App Store Connect API Key ID (e.g. '2X9R4HXF34')"
+    required: true
+  asc_issuer_id:
+    description: "App Store Connect API Issuer ID (UUID)"
+    required: true
+  asc_private_key:
+    description: "App Store Connect API Private Key (.p8 text content or base64 encoded)"
+    required: true
+  version:
+    description: "Target version string (e.g. '1.2.0'). If omitted, will automatically target the current 'PREPARE_FOR_SUBMISSION' version."
+    required: false
+  locales:
+    description: "Comma-separated list of locales (e.g. 'en-US,tr'). Default: 'en-US'"
+    required: false
+    default: "en-US"
+  style:
+    description: "Release notes tone & style: 'bullet-points', 'emojis', 'minimal', or 'detailed'"
+    required: false
+    default: "bullet-points"
+  git_since:
+    description: "Git ref or range to analyze commits from (e.g. 'auto' for last git tag, 'HEAD~10', or commit hash). Default: 'auto'"
+    required: false
+    default: "auto"
+  app_context:
+    description: "Extra contextual description about your app and features to assist the AI model."
+    required: false
+  dry_run:
+    description: "If set to 'true', metadata is generated and previewed without sending updates to App Store Connect."
+    required: false
+    default: "false"
+  save_to_disk:
+    description: "Optional local path to save generated metadata files (e.g. 'fastlane/metadata' or '.appstore/metadata')."
+    required: false
+
+outputs:
+  release_notes_json:
+    description: "Generated release notes for each locale in JSON format: {'en-US': '...', 'tr': '...'}"
+  app_version:
+    description: "The App Store version string that was updated or targeted."
+  status:
+    description: "Status result: 'updated' or 'dry-run-preview'"
+
+runs:
+  using: "node20"
+  main: "dist/index.js"

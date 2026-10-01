@@ -1,0 +1,47 @@
+name: "App Store AI Release"
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Target App Store Version (e.g. 1.2.0)"
+        required: false
+      dry_run:
+        description: "Run in dry-run mode (do not push to Apple)"
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  update-appstore-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history needed to inspect commits and tags
+
+      - name: Generate & Push App Store Release Notes
+        uses: ./ # Or your-org/apple-store-ai-action@v1
+        with:
+          # AI Provider: 'gemini', 'claude', or 'openai'
+          provider: 'gemini'
+          model: 'gemini-2.0-flash'
+          api_key: ${{ secrets.GEMINI_API_KEY }}
+
+          # App Store Connect Credentials
+          app_id: ${{ secrets.APP_STORE_APP_ID }}
+          asc_key_id: ${{ secrets.APP_STORE_KEY_ID }}
+          asc_issuer_id: ${{ secrets.APP_STORE_ISSUER_ID }}
+          asc_private_key: ${{ secrets.APP_STORE_PRIVATE_KEY }}
+
+          # Options
+          version: ${{ github.event.inputs.version }}
+          locales: 'en-US,tr,de-DE'
+          style: 'bullet-points' # 'bullet-points' | 'emojis' | 'minimal' | 'detailed'
+          git_since: 'auto'
+          dry_run: ${{ github.event.inputs.dry_run || 'false' }}
+          save_to_disk: 'fastlane/metadata'
