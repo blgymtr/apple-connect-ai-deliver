@@ -54,6 +54,7 @@ Environment Variables:
     else if (arg === '--style' && next) { overrides.style = next as ReleaseNotesStyle; i++; }
     else if (arg === '--git-since' && next) { overrides.gitSince = next; i++; }
     else if (arg === '--save-to-disk' && next) { overrides.saveToDisk = next; i++; }
+    else if (arg === '--webhook-url' && next) { overrides.webhookUrl = next; i++; }
     else if (arg === '--dry-run') { overrides.dryRun = true; }
   }
 

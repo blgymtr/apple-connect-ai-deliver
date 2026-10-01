@@ -104,8 +104,62 @@ jobs:
 | `app_context` | Hayır | - | Uygulama hakkında AI'a ek bilgi (ör. "Finans ve bütçe takip uygulaması") |
 | `dry_run` | Hayır | `false` | `true` yapılırsa App Store Connect'e istek atmadan sonucu loglar |
 | `save_to_disk` | Hayır | - | Üretilen notları diske kaydetme yolu (ör. `fastlane/metadata`) |
+| `github_token` | Hayır | `${{ github.token }}` | PR önizleme yorumu için GitHub token |
+| `pr_comment`   | Hayır | `true` | PR açıldığında otomatik yapışkan önizleme yorumu ekleme/güncelleme |
+| `webhook_url`  | Hayır | - | Slack veya Discord webhook bildirim adresi |
 
 ---
+
+## 💬 Pull Request (PR) Önizleme Botu
+
+Bir geliştirici `main` dalına PR açtığında veya PR'a yeni commit gönderdiğinde, AI otomatik olarak değişiklikleri inceler ve PR'ın altına şık bir önizleme yorumu bırakır. Yeni commit geldikçe spama yol açmadan mevcut yorumu günceller (**Sticky Comment**).
+
+```yaml
+name: "App Store AI PR Preview"
+
+on:
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pull-requests: write # PR'a yorum yazabilmek için gereklidir
+
+jobs:
+  pr-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: blgymtr/apple-connect-ai-deliver@v1
+        with:
+          provider: 'gemini'
+          api_key: ${{ secrets.GEMINI_API_KEY }}
+          dry_run: 'true'
+          pr_comment: 'true'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          locales: 'en-US,tr'
+```
+
+---
+
+## 📢 Slack & Discord Webhook Bildirimleri
+
+Yeni bir sürüm yayınlandığında veya PR onaylandığında ekibinize otomatik bildirim göndermek için `webhook_url` parametresini tanımlamanız yeterlidir:
+
+```yaml
+      - uses: blgymtr/apple-connect-ai-deliver@v1
+        with:
+          provider: 'gemini'
+          api_key: ${{ secrets.GEMINI_API_KEY }}
+          app_id: ${{ secrets.APP_STORE_APP_ID }}
+          asc_key_id: ${{ secrets.APP_STORE_KEY_ID }}
+          asc_issuer_id: ${{ secrets.APP_STORE_ISSUER_ID }}
+          asc_private_key: ${{ secrets.APP_STORE_PRIVATE_KEY }}
+          webhook_url: ${{ secrets.SLACK_OR_DISCORD_WEBHOOK }}
+```
 
 ## 💻 Yerel CLI Kullanımı
 

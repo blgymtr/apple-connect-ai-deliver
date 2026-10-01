@@ -5,6 +5,8 @@ import { extractGitCommits } from './git/commits';
 import { createAIProvider } from './ai/factory';
 import { AppStoreConnectClient } from './apple/client';
 import { saveReleaseNotesToDisk } from './utils/exporter';
+import { upsertPRComment } from './github/pr';
+import { sendWebhookNotification } from './notifications/webhook';
 
 export interface RunResult {
   version: string;
@@ -86,6 +88,37 @@ export async function runAction(config: ActionConfig): Promise<RunResult> {
     logger.endGroup();
   } else if (config.dryRun) {
     logger.info('[DRY-RUN] Skipped App Store Connect API calls as dry_run is enabled.');
+  }
+
+  // 5. Post Sticky Pull Request Comment (if in PR context)
+  if (config.prComment && (config.githubToken || process.env.GITHUB_TOKEN)) {
+    const token = config.githubToken || process.env.GITHUB_TOKEN!;
+    logger.group('Step 5: Pull Request Preview Comment', () => {});
+    try {
+      await upsertPRComment(token, {
+        releaseNotes,
+        version: targetVersionString,
+        provider: config.provider,
+        model: config.model,
+        status
+      });
+    } catch (err: any) {
+      logger.warn(`Failed to post/update PR comment: ${err.message}`);
+    }
+    logger.endGroup();
+  }
+
+  // 6. Optional: Send Webhook Notification (Slack / Discord)
+  if (config.webhookUrl) {
+    logger.group('Step 6: Sending Webhook Notification', () => {});
+    await sendWebhookNotification({
+      webhookUrl: config.webhookUrl,
+      version: targetVersionString,
+      provider: config.provider,
+      releaseNotes,
+      status
+    });
+    logger.endGroup();
   }
 
   return {

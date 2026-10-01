@@ -17,6 +17,9 @@ export interface ActionConfig {
   appContext?: string;
   dryRun: boolean;
   saveToDisk?: string;
+  githubToken?: string;
+  prComment?: boolean;
+  webhookUrl?: string;
 }
 
 export interface ReleaseNotesOutput {

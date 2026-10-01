@@ -53,6 +53,17 @@ inputs:
   save_to_disk:
     description: "Optional local path to save generated metadata files (e.g. 'fastlane/metadata' or '.appstore/metadata')."
     required: false
+  github_token:
+    description: "GitHub token used for posting and updating sticky PR preview comments."
+    required: false
+    default: "${{ github.token }}"
+  pr_comment:
+    description: "Whether to automatically post/update a sticky release notes preview comment on Pull Requests."
+    required: false
+    default: "true"
+  webhook_url:
+    description: "Optional Slack or Discord incoming webhook URL to broadcast release notifications."
+    required: false
 
 outputs:
   release_notes_json:

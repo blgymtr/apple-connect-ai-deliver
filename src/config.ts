@@ -42,6 +42,14 @@ export function loadConfig(overrides: Partial<ActionConfig> = {}): ActionConfig 
 
   const saveToDisk = overrides.saveToDisk || getInput('save_to_disk', 'SAVE_TO_DISK', '');
 
+  const githubToken = overrides.githubToken || getInput('github_token', 'GITHUB_TOKEN', '');
+  const prCommentStr = overrides.prComment !== undefined
+    ? String(overrides.prComment)
+    : getInput('pr_comment', 'PR_COMMENT', 'true');
+  const prComment = prCommentStr.toLowerCase() !== 'false' && prCommentStr !== '0';
+
+  const webhookUrl = overrides.webhookUrl || getInput('webhook_url', 'WEBHOOK_URL', '');
+
   // Validation
   if (!apiKey) {
     throw new Error(
@@ -76,6 +84,9 @@ export function loadConfig(overrides: Partial<ActionConfig> = {}): ActionConfig 
     gitSince,
     appContext: appContext || undefined,
     dryRun,
-    saveToDisk: saveToDisk || undefined
+    saveToDisk: saveToDisk || undefined,
+    githubToken: githubToken || undefined,
+    prComment,
+    webhookUrl: webhookUrl || undefined
   };
 }
